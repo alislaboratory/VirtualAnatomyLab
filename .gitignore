@@ -1,0 +1,6 @@
+node_modules/
+anatomy_lab.db
+anatomy_lab.db-journal
+*.log
+.env
+.DS_Store

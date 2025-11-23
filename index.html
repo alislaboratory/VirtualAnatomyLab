@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNSW Virtual Anatomy Lab - 3D Model Viewer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>UNSW Virtual Anatomy Lab</h1>
+            <p>Interactive 3D Anatomy Model Viewer</p>
+        </header>
+        
+        <div class="controls">
+            <div class="custom-dropdown">
+                <button id="model-select-btn" class="model-select-btn">
+                    <span id="model-select-text">Select a model...</span>
+                    <span class="dropdown-arrow">▼</span>
+                </button>
+                <div id="model-dropdown-menu" class="dropdown-menu hidden">
+                    <div id="model-dropdown-list" class="dropdown-list"></div>
+                </div>
+            </div>
+            <button id="reset-camera" class="btn">Reset Camera</button>
+            <button id="add-label-btn" class="btn btn-primary">Add Label</button>
+            <button id="toggle-labels-btn" class="btn">Show/Hide Labels</button>
+            <button id="view-labels-btn" class="btn">View Labels List</button>
+            <button id="add-question-btn" class="btn btn-question">Add Question</button>
+            <button id="view-questions-btn" class="btn">View Questions List</button>
+            <button id="start-quiz-btn" class="btn btn-quiz">Start Quiz</button>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Loading model...</p>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+
+        <div id="viewer-container">
+            <canvas id="viewer-canvas"></canvas>
+            <div id="label-container"></div>
+            <div id="camera-adjustment-overlay" class="camera-adjustment-overlay hidden">
+                <div class="camera-adjustment-content">
+                    <h3>Adjust Camera View</h3>
+                    <p>Use mouse controls to position the camera, then click confirm when ready.</p>
+                    <div class="camera-adjustment-actions">
+                        <button id="confirm-camera-view-btn" class="btn btn-primary">Confirm Camera View</button>
+                        <button id="cancel-camera-adjustment-btn" class="btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <div id="info" class="info hidden">
+                <div class="info-content">
+                    <h3>Controls</h3>
+                    <ul>
+                        <li><strong>Left Click + Drag:</strong> Rotate</li>
+                        <li><strong>Right Click + Drag:</strong> Pan</li>
+                        <li><strong>Scroll:</strong> Zoom</li>
+                        <li><strong>Double Click:</strong> Focus on model</li>
+                        <li><strong>Click on Model:</strong> Add label (when enabled)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Label Management Panel -->
+        <div id="labels-panel" class="labels-panel hidden">
+            <div class="labels-panel-header">
+                <h3>Labels</h3>
+                <button id="close-labels-panel" class="btn-close">×</button>
+            </div>
+            <div id="labels-list" class="labels-list"></div>
+        </div>
+
+        <!-- Questions Management Panel -->
+        <div id="questions-panel" class="labels-panel hidden">
+            <div class="labels-panel-header">
+                <h3>Questions</h3>
+                <button id="close-questions-panel" class="btn-close">×</button>
+            </div>
+            <div id="questions-list" class="labels-list"></div>
+        </div>
+
+        <!-- Label Input Modal -->
+        <div id="label-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add Label</h3>
+                    <button id="close-modal" class="btn-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="label-text">Label Text:</label>
+                        <input type="text" id="label-text" placeholder="Enter label text..." maxlength="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="label-color">Label Color:</label>
+                        <input type="color" id="label-color" value="#667eea">
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-label" class="btn btn-primary">Save Label</button>
+                        <button id="cancel-label" class="btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Input Modal -->
+        <div id="question-modal" class="modal hidden">
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h3 id="question-modal-title">Add Question</h3>
+                    <button id="close-question-modal" class="btn-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="question-text">Question Text:</label>
+                        <textarea id="question-text" placeholder="Enter your question..." rows="3" maxlength="200"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="question-type">Question Type:</label>
+                        <select id="question-type" class="option-input">
+                            <option value="mcq">Multiple Choice (MCQ)</option>
+                            <option value="text">Text Input</option>
+                        </select>
+                        <small class="form-hint">Choose the type of question</small>
+                    </div>
+                    <div id="mcq-options-container" class="form-group">
+                        <label>Answer Options:</label>
+                        <div class="options-container">
+                            <div class="option-row">
+                                <input type="radio" name="correct-answer" value="0" id="correct-0" checked>
+                                <input type="text" class="option-input" id="option-0" placeholder="Option 1">
+                            </div>
+                            <div class="option-row">
+                                <input type="radio" name="correct-answer" value="1" id="correct-1">
+                                <input type="text" class="option-input" id="option-1" placeholder="Option 2">
+                            </div>
+                            <div class="option-row">
+                                <input type="radio" name="correct-answer" value="2" id="correct-2">
+                                <input type="text" class="option-input" id="option-2" placeholder="Option 3">
+                            </div>
+                            <div class="option-row">
+                                <input type="radio" name="correct-answer" value="3" id="correct-3">
+                                <input type="text" class="option-input" id="option-3" placeholder="Option 4">
+                            </div>
+                        </div>
+                        <small class="form-hint">Select the radio button next to the correct answer</small>
+                    </div>
+                    <div id="text-answer-container" class="form-group hidden">
+                        <label for="text-correct-answer">Correct Answer:</label>
+                        <input type="text" id="text-correct-answer" class="option-input" placeholder="Enter the correct answer text">
+                        <small class="form-hint">Enter the expected answer (case-insensitive)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Camera View:</label>
+                        <div class="camera-view-control">
+                            <button id="add-camera-view-btn" class="btn btn-camera">Add Camera View</button>
+                            <span id="camera-view-status" class="camera-view-status">No camera view saved</span>
+                        </div>
+                        <small class="form-hint">Click to adjust the camera view, then confirm when ready</small>
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-question" class="btn btn-primary">Save Question</button>
+                        <button id="cancel-question" class="btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Mode Overlay -->
+        <div id="quiz-overlay" class="quiz-overlay hidden">
+            <div class="quiz-container">
+                <div class="quiz-header">
+                    <div class="quiz-progress">
+                        <span id="quiz-question-number">Question 1</span>
+                        <span id="quiz-progress-text">of 0</span>
+                    </div>
+                    <button id="exit-quiz-btn" class="btn-small">Exit Quiz</button>
+                </div>
+                <div class="quiz-content">
+                    <h2 id="quiz-question-text">Question text will appear here</h2>
+                    <div id="quiz-options" class="quiz-options"></div>
+                    <div id="quiz-feedback" class="quiz-feedback hidden"></div>
+                </div>
+                <div class="quiz-footer">
+                    <button id="quiz-prev-btn" class="btn btn-secondary">Previous</button>
+                    <button id="quiz-next-btn" class="btn btn-primary">Next</button>
+                    <button id="quiz-submit-btn" class="btn btn-success hidden">Submit Quiz</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Model Modal -->
+        <div id="edit-model-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Edit Model</h3>
+                    <button id="close-edit-model-modal" class="btn-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit-model-name-input">Model Name:</label>
+                        <input type="text" id="edit-model-name-input" placeholder="Enter model name..." maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-model-description-input">Description (optional):</label>
+                        <textarea id="edit-model-description-input" placeholder="Enter description..." rows="3" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-edit-model-btn" class="btn btn-primary">Save Changes</button>
+                        <button id="cancel-edit-model" class="btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Model Upload Modal -->
+        <div id="new-model-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Upload New Model</h3>
+                    <button id="close-new-model-modal" class="btn-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="model-name-input">Model Name:</label>
+                        <input type="text" id="model-name-input" placeholder="Enter model name..." maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="model-description-input">Description (optional):</label>
+                        <textarea id="model-description-input" placeholder="Enter description..." rows="3" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-model-file-input">GLB File:</label>
+                        <label for="new-model-file-input" class="file-input-label">
+                            <span id="file-input-label-text">Choose GLB File</span>
+                            <input type="file" id="new-model-file-input" accept=".glb" hidden>
+                        </label>
+                        <div id="file-name-display" class="file-name-display hidden"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="upload-model-btn" class="btn btn-primary" disabled>Upload Model</button>
+                        <button id="cancel-new-model" class="btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Results Modal -->
+        <div id="quiz-results-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Quiz Results</h3>
+                    <button id="close-results-modal" class="btn-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="results-content">
+                        <div class="score-display">
+                            <h2 id="quiz-score">0/0</h2>
+                            <p id="quiz-percentage">0%</p>
+                        </div>
+                        <div id="results-summary" class="results-summary"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="close-results" class="btn btn-primary">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="viewer.js"></script>
+</body>
+</html>
