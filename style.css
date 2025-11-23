@@ -607,10 +607,138 @@ header p {
     font-size: 14px;
     font-weight: 500;
     white-space: nowrap;
-    pointer-events: none;
+    pointer-events: auto;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     border: 2px solid white;
     user-select: none;
+    cursor: pointer;
+    position: relative;
+}
+
+.label-3d:hover {
+    z-index: 1000;
+}
+
+.label-hover-popup {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    display: none;
+    flex-direction: row;
+    gap: 6px;
+    z-index: 1001;
+    white-space: nowrap;
+}
+
+.label-3d:hover .label-hover-popup {
+    display: flex;
+}
+
+.label-hover-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.label-hover-btn-edit {
+    background: #667eea;
+    color: white;
+}
+
+.label-hover-btn-edit:hover {
+    background: #5568d3;
+}
+
+.label-hover-btn-delete {
+    background: #ef4444;
+    color: white;
+}
+
+.label-hover-btn-delete:hover {
+    background: #dc2626;
+}
+
+.question-hover-popup {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1001;
+    min-width: 250px;
+    max-width: 350px;
+}
+
+.label-3d:hover .question-hover-popup {
+    display: flex;
+}
+
+.question-hover-text {
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.question-hover-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+}
+
+.question-hover-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+}
+
+.question-hover-btn-preview {
+    background: #10b981;
+    color: white;
+}
+
+.question-hover-btn-preview:hover {
+    background: #059669;
+}
+
+.question-hover-btn-edit {
+    background: #667eea;
+    color: white;
+}
+
+.question-hover-btn-edit:hover {
+    background: #5568d3;
+}
+
+.question-hover-btn-delete {
+    background: #ef4444;
+    color: white;
+}
+
+.question-hover-btn-delete:hover {
+    background: #dc2626;
 }
 
 .label-marker {

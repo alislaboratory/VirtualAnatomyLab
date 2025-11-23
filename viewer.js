@@ -497,6 +497,16 @@ async function loadAvailableModels() {
         
         modelDropdownList.innerHTML = '';
         
+        // Add "New Model" option at the top
+        const newModelItem = document.createElement('div');
+        newModelItem.className = 'dropdown-item new-model-item';
+        newModelItem.innerHTML = '<span>+ New Model</span>';
+        newModelItem.onclick = () => {
+            openNewModelModal();
+            modelDropdownMenu.classList.add('hidden');
+        };
+        modelDropdownList.appendChild(newModelItem);
+        
         // Add each model with edit/delete buttons
         models.forEach(model => {
             const item = document.createElement('div');
@@ -546,16 +556,6 @@ async function loadAvailableModels() {
             item.appendChild(actions);
             modelDropdownList.appendChild(item);
         });
-        
-        // Add "New Model" option at the end
-        const newModelItem = document.createElement('div');
-        newModelItem.className = 'dropdown-item new-model-item';
-        newModelItem.innerHTML = '<span>+ New Model</span>';
-        newModelItem.onclick = () => {
-            openNewModelModal();
-            modelDropdownMenu.classList.add('hidden');
-        };
-        modelDropdownList.appendChild(newModelItem);
         
         // Update selected model text if one is loaded
         if (currentModelId) {
@@ -1013,6 +1013,9 @@ async function createLabel(text, position, color = '#667eea') {
         labelDiv.style.backgroundColor = color;
         labelDiv.style.borderColor = color;
 
+        // Add hover popup
+        addLabelHoverPopup(labelDiv, savedLabel.id);
+
         // Create CSS2D object
         const label = new CSS2DObject(labelDiv);
         label.position.copy(position);
@@ -1040,6 +1043,149 @@ async function createLabel(text, position, color = '#667eea') {
     } catch (error) {
         console.error('Error creating label:', error);
         showError('Failed to save label: ' + error.message);
+    }
+}
+
+// Helper function to add hover popup to label
+function addLabelHoverPopup(labelDiv, labelId) {
+    const popup = document.createElement('div');
+    popup.className = 'label-hover-popup';
+    
+    const editBtn = document.createElement('button');
+    editBtn.className = 'label-hover-btn label-hover-btn-edit';
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = (e) => {
+        e.stopPropagation();
+        const labelData = labels.find(l => l.id === labelId);
+        if (labelData) {
+            // Delete the old label and create a new one at the same position
+            // This is a simple way to "edit" since labels don't have an edit API
+            deleteLabel(labelId).then(() => {
+                // Set up for new label at same position
+                pendingLabelPosition = labelData.position.clone();
+                labelTextInput.value = labelData.text;
+                labelColorInput.value = labelData.color;
+                labelModal.classList.remove('hidden');
+                labelMode = true;
+                addLabelBtn.classList.add('active');
+                addLabelBtn.textContent = 'Cancel';
+            });
+        }
+    };
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'label-hover-btn label-hover-btn-delete';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm('Are you sure you want to delete this label?')) {
+            deleteLabel(labelId);
+        }
+    };
+    
+    popup.appendChild(editBtn);
+    popup.appendChild(deleteBtn);
+    labelDiv.appendChild(popup);
+}
+
+// Helper function to add hover popup to question
+function addQuestionHoverPopup(questionDiv, questionData) {
+    const popup = document.createElement('div');
+    popup.className = 'question-hover-popup';
+    
+    const questionText = document.createElement('div');
+    questionText.className = 'question-hover-text';
+    questionText.textContent = questionData.text;
+    popup.appendChild(questionText);
+    
+    const buttons = document.createElement('div');
+    buttons.className = 'question-hover-buttons';
+    
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'question-hover-btn question-hover-btn-preview';
+    previewBtn.textContent = 'Preview';
+    previewBtn.onclick = (e) => {
+        e.stopPropagation();
+        previewQuestion(questionData);
+    };
+    
+    const editBtn = document.createElement('button');
+    editBtn.className = 'question-hover-btn question-hover-btn-edit';
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = (e) => {
+        e.stopPropagation();
+        openQuestionModal(questionData);
+    };
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'question-hover-btn question-hover-btn-delete';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm('Are you sure you want to delete this question?')) {
+            deleteQuestion(questionData.id);
+        }
+    };
+    
+    buttons.appendChild(previewBtn);
+    buttons.appendChild(editBtn);
+    buttons.appendChild(deleteBtn);
+    popup.appendChild(buttons);
+    questionDiv.appendChild(popup);
+}
+
+// Preview a question - opens quiz UI and focuses on it
+function previewQuestion(questionData) {
+    // Find the question index
+    const questionIndex = questions.findIndex(q => q.id === questionData.id);
+    if (questionIndex === -1) return;
+    
+    // Don't set quizMode - this is just a preview
+    // But we need to set currentQuizQuestion for updateQuizUI to work
+    currentQuizQuestion = questionIndex;
+    quizAnswers = new Array(questions.length).fill(-1);
+    
+    // Open quiz overlay
+    quizOverlay.classList.remove('hidden');
+    
+    // Update UI to show this question (but disable navigation buttons for preview)
+    updateQuizUI();
+    
+    // Disable navigation buttons in preview mode
+    quizPrevBtn.disabled = true;
+    quizNextBtn.disabled = true;
+    const submitBtn = document.getElementById('quiz-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
+    
+    // Hide feedback area in preview
+    if (quizFeedback) {
+        quizFeedback.style.display = 'none';
+    }
+    
+    // Animate camera to question view
+    if (questionData.cameraView) {
+        animateCameraToSavedView(questionData.cameraView, () => {
+            // Camera animation complete
+        });
+    } else {
+        animateCameraToPosition(questionData.position, () => {
+            // Camera animation complete
+        });
+    }
+    
+    // Add exit button handler - close preview when exit is clicked
+    const exitBtn = document.getElementById('exit-quiz-btn');
+    if (exitBtn) {
+        const exitHandler = () => {
+            quizOverlay.classList.add('hidden');
+            // Re-enable buttons
+            quizPrevBtn.disabled = false;
+            quizNextBtn.disabled = false;
+            if (submitBtn) submitBtn.disabled = false;
+            if (quizFeedback) quizFeedback.style.display = 'block';
+            exitBtn.removeEventListener('click', exitHandler);
+        };
+        exitBtn.addEventListener('click', exitHandler);
     }
 }
 
@@ -1496,14 +1642,7 @@ async function createQuestion(text, questionType, options, correctAnswer, positi
         questionDiv.style.justifyContent = 'center';
         questionDiv.style.borderRadius = '50%';
 
-        // Create CSS2D object
-        const questionMarker = new CSS2DObject(questionDiv);
-        questionMarker.position.copy(position);
-
-        // Add to scene
-        scene.add(questionMarker);
-
-        // Store question info
+        // Store question info first (needed for hover popup)
         const questionData = {
             id: savedQuestion.id,
             text: text,
@@ -1511,7 +1650,6 @@ async function createQuestion(text, questionType, options, correctAnswer, positi
             options: savedQuestion.options,
             correctAnswer: savedQuestion.correct_answer,
             position: position.clone(),
-            marker: questionMarker,
             cameraView: {
                 position: new THREE.Vector3(
                     savedQuestion.camera_position_x,
@@ -1525,6 +1663,17 @@ async function createQuestion(text, questionType, options, correctAnswer, positi
                 )
             }
         };
+
+        // Add hover popup
+        addQuestionHoverPopup(questionDiv, questionData);
+
+        // Create CSS2D object
+        const questionMarker = new CSS2DObject(questionDiv);
+        questionMarker.position.copy(position);
+        questionData.marker = questionMarker;
+
+        // Add to scene
+        scene.add(questionMarker);
 
         questions.push(questionData);
         
@@ -2170,6 +2319,9 @@ async function loadLabelsForModel(modelId) {
             labelDiv.style.backgroundColor = savedLabel.color;
             labelDiv.style.borderColor = savedLabel.color;
 
+            // Add hover popup
+            addLabelHoverPopup(labelDiv, savedLabel.id);
+
             // Create CSS2D object
             const label = new CSS2DObject(labelDiv);
             label.position.copy(position);
@@ -2231,14 +2383,7 @@ async function loadQuestionsForModel(modelId) {
             questionDiv.style.justifyContent = 'center';
             questionDiv.style.borderRadius = '50%';
 
-            // Create CSS2D object
-            const questionMarker = new CSS2DObject(questionDiv);
-            questionMarker.position.copy(position);
-
-            // Add to scene
-            scene.add(questionMarker);
-
-            // Store question info
+            // Store question info first (needed for hover popup)
             const questionData = {
                 id: savedQuestion.id,
                 text: savedQuestion.text,
@@ -2246,7 +2391,6 @@ async function loadQuestionsForModel(modelId) {
                 options: savedQuestion.options,
                 correctAnswer: savedQuestion.correct_answer,
                 position: position,
-                marker: questionMarker,
                 cameraView: savedQuestion.camera_position_x !== null ? {
                     position: new THREE.Vector3(
                         savedQuestion.camera_position_x,
@@ -2260,6 +2404,17 @@ async function loadQuestionsForModel(modelId) {
                     )
                 } : null
             };
+
+            // Add hover popup
+            addQuestionHoverPopup(questionDiv, questionData);
+
+            // Create CSS2D object
+            const questionMarker = new CSS2DObject(questionDiv);
+            questionMarker.position.copy(position);
+            questionData.marker = questionMarker;
+
+            // Add to scene
+            scene.add(questionMarker);
 
             questions.push(questionData);
         });
