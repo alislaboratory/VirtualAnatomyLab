@@ -57,6 +57,29 @@ This guide will help you deploy the Virtual Anatomy Lab application to your cPan
 
 3. Click **"Create"**
 
+**⚠️ Troubleshooting "No package.json" Error:**
+
+If you see "no package.json is available" when creating the application:
+1. **Check Application Root path** - It must be the exact directory containing `package.json`
+   - Use **File Manager** in cPanel to navigate to your directory
+   - Right-click the folder → **Copy Path** to get the exact path
+   - Make sure the Application Root matches this path exactly
+2. **Verify package.json exists** in that directory:
+   - Open **File Manager** in cPanel
+   - Navigate to your application directory
+   - Confirm `package.json` is visible in the file list
+3. **Check file permissions**:
+   - Right-click `package.json` → **Change Permissions**
+   - Set to `644` (readable by all, writable by owner)
+4. **Re-upload package.json** if it's missing:
+   - Download `package.json` from your local project
+   - Upload it via File Manager to your application directory
+5. **Double-check the path** - Common mistakes:
+   - ❌ `/home/username/public_html/anatomy-lab/` (trailing slash)
+   - ✅ `/home/username/public_html/anatomy-lab` (no trailing slash)
+   - ❌ `/home/username/public_html/anatomy-lab/subfolder` (wrong subdirectory)
+   - ✅ `/home/username/public_html/anatomy-lab` (correct root)
+
 ### 4. Install Dependencies
 
 After creating the application, you'll see options to manage it. You need to install dependencies:
@@ -89,13 +112,116 @@ In the Node.js Selector, you can set environment variables:
 - `PORT`: Usually set automatically by cPanel
 - `NODE_ENV`: Set to `production`
 
-### 7. Start/Restart the Application
+### 7. Fix "better-sqlite3" Installation Errors
+
+**If you get errors about `better-sqlite3` failing to compile:**
+
+This happens because `better-sqlite3` requires native compilation, and some cPanel servers have older system libraries. Try these solutions in order:
+
+**Solution 1: Try a Different Node.js Version**
+
+1. In **Node.js Selector**, click **"Edit"** on your application
+2. Change **Node.js Version** to:
+   - **Node.js 16.x** (often has better prebuilt binaries)
+   - Or **Node.js 20.x** (newer, may have prebuilt binaries)
+3. **Save** the changes
+4. In Terminal, try installing again:
+   ```bash
+   npm install
+   ```
+
+**Solution 2: Force Prebuilt Binary Installation**
+
+Try to force npm to use prebuilt binaries instead of compiling:
+
+```bash
+npm install --build-from-source=false better-sqlite3
+npm install
+```
+
+**Solution 3: Install Build Tools (If Available)**
+
+Some cPanel hosts allow installing build tools. Contact your hosting provider to:
+- Enable Python 3.8+ (for node-gyp)
+- Install build-essential or development tools
+- Update GLIBC (if possible)
+
+**Solution 4: Use Alternative Database (Pure JavaScript) ✅ DONE**
+
+The application has been updated to use `sql.js` instead of `better-sqlite3`. `sql.js` is a pure JavaScript SQLite implementation that doesn't require native compilation, making it compatible with cPanel hosting environments that have older system libraries.
+
+**The code has already been updated** - just install dependencies normally:
+```bash
+npm install
+```
+
+This should work without any compilation errors!
+
+### 8. Start/Restart the Application
 
 1. In the Node.js Selector, find your application
 2. Click **"Restart App"** or **"Start App"**
 3. Wait for the application to start (check the status)
 
-### 8. Access Your Application
+### 8. Fix "Files Not Found" Issue
+
+**If you see only boilerplate files when opening Terminal:**
+
+This means the Node.js app was created, but your application files aren't in the Application Root directory. Here's how to fix it:
+
+**Option A: Upload Files to the Application Directory**
+
+1. **Note the Application Root path** from Node.js Selector (e.g., `/home/ashrfgia/home/ashrfgia/anat.ashrafy.au/VirtualAnatomyLab`)
+2. **Open File Manager** in cPanel
+3. **Navigate to that exact directory** (use the path from step 1)
+4. **Upload all your application files** to that directory:
+   - `package.json`
+   - `server.js`
+   - `index.html`
+   - `viewer.js`
+   - `style.css`
+   - Any other project files
+5. **Create the `models/` directory** in that location (for uploaded GLB files)
+6. **Go back to Terminal** and verify files are there:
+   ```bash
+   ls -la
+   ```
+7. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+8. **Restart the app** in Node.js Selector
+
+**Option B: Change Application Root to Where Files Are**
+
+If your files are already uploaded somewhere else:
+
+1. **Find where your files are** using File Manager
+2. **Note the exact path** (right-click folder → Copy Path)
+3. **Go to Node.js Selector** → Click **"Edit"** on your application
+4. **Change Application Root** to the path where your files actually are
+5. **Save** and restart the app
+
+**Option C: Use Git to Clone Files**
+
+If you're using Git:
+
+1. **In Terminal**, navigate to the Application Root directory:
+   ```bash
+   cd /home/ashrfgia/home/ashrfgia/anat.ashrafy.au/VirtualAnatomyLab
+   ```
+2. **Clone your repository**:
+   ```bash
+   git clone https://github.com/yourusername/virtual-anatomy-lab.git .
+   ```
+   (The `.` at the end clones into the current directory)
+3. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+4. **Restart the app** in Node.js Selector
+
+### 9. Access Your Application
 
 1. Visit your application URL (the one you set in step 3)
 2. You should see the login screen

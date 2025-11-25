@@ -35,32 +35,82 @@ This guide explains how to deploy the Virtual Anatomy Lab to cPanel using Git ve
 3. Click **"Create"** or **"Clone a Repository"**
 4. Fill in:
    - **Repository URL**: Your Git repository URL (e.g., `https://github.com/yourusername/virtual-anatomy-lab.git`)
-   - **Repository Path**: `/home/username/repositories/anatomy-lab` (or your preferred path)
+   - **Repository Path**: `/home/username/public_html/anatomy-lab` ⚠️ **Important: Clone directly to your web directory!**
    - **Repository Name**: `anatomy-lab`
    - **Branch**: `main` or `master` (depending on your default branch)
 5. Click **"Create"**
 
-### Step 3: Set Up Deployment Directory
+**Why clone directly to public_html?**
+- This way, your files are already in the web-accessible location
+- You don't need to use the "Deploy" feature
+- Simpler setup for Node.js applications
 
-1. In Git Version Control, after cloning, you'll see your repository
-2. Click **"Manage"** next to your repository
-3. Set up **"Deploy"**:
-   - **Deploy Path**: `/home/username/public_html/anatomy-lab` (your web-accessible directory)
-   - **Deploy Branch**: `main` or `master`
-   - Click **"Deploy"**
+### Step 3: Set Up Deployment Directory (Optional)
 
-### Step 4: Set Up Node.js Application
+**What does "Deploy" do?**
+- When you clone a Git repository in cPanel, it typically goes to `/home/username/repositories/repo-name`
+- The "Deploy" feature copies files from the repository to your web-accessible directory (like `public_html`)
+- This keeps your Git repo separate from your web files
+
+**Do you need it?**
+- **Option A (Recommended)**: Clone directly to your web directory - Skip the deploy step
+  - When cloning, set the repository path to: `/home/username/public_html/anatomy-lab`
+  - This way, the files are already where they need to be
+  - No deploy step needed!
+
+- **Option B**: Use deploy feature
+  - Clone to `/home/username/repositories/anatomy-lab` (default location)
+  - Then set up Deploy to copy to `/home/username/public_html/anatomy-lab`
+  - Useful if you want to keep Git repo separate from web files
+
+**For this Node.js app, we recommend Option A** (clone directly to web directory) to keep things simple.
+
+### Step 4: Verify Files Are Present
+
+Before creating the Node.js app, verify your files are in place:
+
+1. Open **File Manager** in cPanel
+2. Navigate to `/public_html/anatomy-lab` (or your chosen directory)
+3. **Verify these files exist**:
+   - ✅ `package.json`
+   - ✅ `server.js`
+   - ✅ `index.html`
+   - ✅ `viewer.js`
+   - ✅ `style.css`
+
+**If files are missing:**
+- If using Git: Make sure you've committed `package.json` to your repository
+- Check that the Git clone completed successfully
+- If using Deploy: Make sure Deploy ran successfully
+
+### Step 5: Set Up Node.js Application
 
 1. Go to **Node.js Selector** in cPanel
 2. Click **"Create Application"**
 3. Configure:
-   - **Application Root**: `/home/username/public_html/anatomy-lab` (same as deploy path)
+   - **Application Root**: `/home/username/public_html/anatomy-lab` ⚠️ **Must match exactly where package.json is located!**
    - **Application Startup File**: `server.js`
    - **Node.js Version**: 18.x or 20.x
    - **Application URL**: Your domain/subdomain
 4. Click **"Create"**
 
-### Step 5: Install Dependencies and Start
+**⚠️ Troubleshooting "No package.json" Error:**
+
+If you see "no package.json is available":
+1. **Check Application Root path** - It must be the exact directory containing `package.json`
+   - Use **File Manager** to find the exact path
+   - Copy the full path from File Manager (right-click folder → Copy Path)
+2. **Verify package.json exists** in that directory using File Manager
+3. **Check file permissions** - `package.json` should be readable (644 permissions)
+4. **If using Git**: Make sure `package.json` is committed to your repository:
+   ```bash
+   git add package.json
+   git commit -m "Add package.json"
+   git push
+   ```
+5. **Re-clone or re-deploy** if files are missing
+
+### Step 6: Install Dependencies and Start
 
 1. Open **Terminal** in cPanel
 2. Navigate to your application:
@@ -73,7 +123,7 @@ This guide explains how to deploy the Virtual Anatomy Lab to cPanel using Git ve
    ```
 4. Go back to **Node.js Selector** and click **"Restart App"**
 
-### Step 6: Set Up Auto-Deploy (Optional)
+### Step 7: Set Up Auto-Deploy (Optional)
 
 To automatically deploy when you push to Git:
 

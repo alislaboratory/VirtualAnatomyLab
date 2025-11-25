@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -46,8 +46,74 @@ const upload = multer({
     }
 });
 
-// Initialize database
-const db = new Database('anatomy_lab.db');
+// Initialize database with sql.js
+const SQL = await initSqlJs();
+const dbPath = 'anatomy_lab.db';
+let sqliteDb;
+
+// Load existing database or create new one
+if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath);
+    sqliteDb = new SQL.Database(buffer);
+} else {
+    sqliteDb = new SQL.Database();
+}
+
+// Helper function to save database to file
+function saveDatabase() {
+    const data = sqliteDb.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+}
+
+// Helper class to mimic better-sqlite3 API
+class PreparedStatement {
+    constructor(sqliteDb, sql) {
+        this.sqliteDb = sqliteDb;
+        this.sql = sql;
+        this.stmt = sqliteDb.prepare(sql);
+    }
+
+    run(...params) {
+        this.stmt.bind(params);
+        this.stmt.step();
+        this.stmt.reset();
+        saveDatabase();
+        // sql.js doesn't have getRowsModified, return a mock object for compatibility
+        return { changes: 1 };
+    }
+
+    get(...params) {
+        this.stmt.bind(params);
+        const result = this.stmt.step();
+        if (!result) {
+            this.stmt.reset();
+            return undefined;
+        }
+        const row = this.stmt.getAsObject();
+        this.stmt.reset();
+        return row;
+    }
+
+    all(...params) {
+        this.stmt.bind(params);
+        const rows = [];
+        while (this.stmt.step()) {
+            rows.push(this.stmt.getAsObject());
+        }
+        this.stmt.reset();
+        return rows;
+    }
+}
+
+// Wrapper to mimic better-sqlite3 Database API
+const db = {
+    prepare: (sql) => new PreparedStatement(sqliteDb, sql),
+    exec: (sql) => {
+        sqliteDb.exec(sql);
+        saveDatabase();
+    }
+};
 
 // Create tables
 db.exec(`
@@ -91,15 +157,6 @@ db.exec(`
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE CASCADE
     );
-    
-    -- Add question_type column if it doesn't exist (for existing databases)
-    -- Check if column exists by trying to select it
-    -- If it fails, we'll add it
-    BEGIN;
-    -- Try to add the column, ignore if it already exists
-    -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we use a different approach
-    -- We'll handle this in the application code by checking the schema
-    COMMIT;
 
     CREATE INDEX IF NOT EXISTS idx_labels_model_id ON labels(model_id);
     CREATE INDEX IF NOT EXISTS idx_questions_model_id ON questions(model_id);
