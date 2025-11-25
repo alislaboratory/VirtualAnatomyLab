@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import initSqlJs from 'sql.js';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -46,72 +45,237 @@ const upload = multer({
     }
 });
 
-// Initialize database with sql.js
-const SQL = await initSqlJs();
-const dbPath = 'anatomy_lab.db';
-let sqliteDb;
+// Simple file-based JSON database (no WebAssembly, no memory issues)
+const dbPath = 'anatomy_lab.json';
 
-// Load existing database or create new one
-if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath);
-    sqliteDb = new SQL.Database(buffer);
-} else {
-    sqliteDb = new SQL.Database();
+// Load database from file or create new one
+function loadDatabase() {
+    if (fs.existsSync(dbPath)) {
+        try {
+            const data = fs.readFileSync(dbPath, 'utf8');
+            return JSON.parse(data);
+        } catch (e) {
+            console.warn('Error loading database, creating new one:', e.message);
+            return { models: [], labels: [], questions: [] };
+        }
+    }
+    return { models: [], labels: [], questions: [] };
 }
 
-// Helper function to save database to file
-function saveDatabase() {
-    const data = sqliteDb.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(dbPath, buffer);
+// Save database to file
+function saveDatabase(data) {
+    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
 }
+
+// Initialize database
+let dbData = loadDatabase();
+
+// Ensure question_type column exists (migration)
+dbData.questions.forEach(q => {
+    if (!q.question_type) {
+        q.question_type = 'mcq';
+    }
+});
+saveDatabase(dbData);
 
 // Helper class to mimic better-sqlite3 API
 class PreparedStatement {
-    constructor(sqliteDb, sql) {
-        this.sqliteDb = sqliteDb;
+    constructor(sql, dbDataRef) {
         this.sql = sql;
-        this.stmt = sqliteDb.prepare(sql);
+        this.dbDataRef = dbDataRef;
+        this.parseSQL();
+    }
+
+    parseSQL() {
+        // Simple SQL parser for our use case
+        const sql = this.sql.trim();
+        
+        if (sql.startsWith('SELECT')) {
+            this.type = 'SELECT';
+            if (sql.includes('COUNT(*)')) {
+                this.isCount = true;
+            }
+            if (sql.includes('WHERE id = ?')) {
+                this.whereId = true;
+            } else if (sql.includes('WHERE model_id = ?')) {
+                this.whereModelId = true;
+            } else if (sql.includes('ORDER BY created_at DESC')) {
+                this.orderByDesc = true;
+            } else if (sql.includes('ORDER BY created_at ASC')) {
+                this.orderByAsc = true;
+            }
+        } else if (sql.startsWith('INSERT')) {
+            this.type = 'INSERT';
+            if (sql.includes('models')) this.table = 'models';
+            else if (sql.includes('labels')) this.table = 'labels';
+            else if (sql.includes('questions')) this.table = 'questions';
+        } else if (sql.startsWith('UPDATE')) {
+            this.type = 'UPDATE';
+            if (sql.includes('models')) this.table = 'models';
+            else if (sql.includes('labels')) this.table = 'labels';
+            else if (sql.includes('questions')) this.table = 'questions';
+        } else if (sql.startsWith('DELETE')) {
+            this.type = 'DELETE';
+            if (sql.includes('models')) this.table = 'models';
+            else if (sql.includes('labels')) this.table = 'labels';
+            else if (sql.includes('questions')) this.table = 'questions';
+        } else if (sql.startsWith('ALTER')) {
+            this.type = 'ALTER';
+            // Ignore ALTER TABLE for question_type (already handled)
+        }
     }
 
     run(...params) {
-        this.stmt.bind(params);
-        this.stmt.step();
-        this.stmt.reset();
-        saveDatabase();
-        // sql.js doesn't have getRowsModified, return a mock object for compatibility
+        const data = loadDatabase();
+        
+        if (this.type === 'INSERT') {
+            if (this.table === 'models') {
+                const now = new Date().toISOString();
+                data.models.push({
+                    id: params[0],
+                    name: params[1],
+                    description: params[2] || '',
+                    file_path: params[3],
+                    created_at: now,
+                    updated_at: now
+                });
+            } else if (this.table === 'labels') {
+                const now = new Date().toISOString();
+                data.labels.push({
+                    id: params[0],
+                    model_id: params[1],
+                    text: params[2],
+                    color: params[3],
+                    position_x: params[4],
+                    position_y: params[5],
+                    position_z: params[6],
+                    created_at: now
+                });
+            } else if (this.table === 'questions') {
+                const now = new Date().toISOString();
+                data.questions.push({
+                    id: params[0],
+                    model_id: params[1],
+                    text: params[2],
+                    question_type: params[3] || 'mcq',
+                    options: params[4],
+                    correct_answer: params[5],
+                    position_x: params[6],
+                    position_y: params[7],
+                    position_z: params[8],
+                    camera_position_x: params[9],
+                    camera_position_y: params[10],
+                    camera_position_z: params[11],
+                    camera_target_x: params[12],
+                    camera_target_y: params[13],
+                    camera_target_z: params[14],
+                    created_at: now
+                });
+            }
+        } else if (this.type === 'UPDATE') {
+            if (this.table === 'models') {
+                const index = data.models.findIndex(m => m.id === params[2]);
+                if (index !== -1) {
+                    data.models[index].name = params[0];
+                    data.models[index].description = params[1];
+                    data.models[index].updated_at = new Date().toISOString();
+                }
+            } else if (this.table === 'questions') {
+                const index = data.questions.findIndex(q => q.id === params[14]);
+                if (index !== -1) {
+                    data.questions[index] = {
+                        ...data.questions[index],
+                        text: params[0],
+                        question_type: params[1] || 'mcq',
+                        options: params[2],
+                        correct_answer: params[3],
+                        position_x: params[4],
+                        position_y: params[5],
+                        position_z: params[6],
+                        camera_position_x: params[7],
+                        camera_position_y: params[8],
+                        camera_position_z: params[9],
+                        camera_target_x: params[10],
+                        camera_target_y: params[11],
+                        camera_target_z: params[12]
+                    };
+                }
+            }
+        } else if (this.type === 'DELETE') {
+            if (this.table === 'models') {
+                const id = params[0];
+                data.models = data.models.filter(m => m.id !== id);
+                // Cascade delete labels and questions
+                data.labels = data.labels.filter(l => l.model_id !== id);
+                data.questions = data.questions.filter(q => q.model_id !== id);
+            } else if (this.table === 'labels') {
+                data.labels = data.labels.filter(l => l.id !== params[0]);
+            } else if (this.table === 'questions') {
+                data.questions = data.questions.filter(q => q.id !== params[0]);
+            }
+        }
+        
+        saveDatabase(data);
+        this.dbDataRef = data;
         return { changes: 1 };
     }
 
     get(...params) {
-        this.stmt.bind(params);
-        const result = this.stmt.step();
-        if (!result) {
-            this.stmt.reset();
-            return undefined;
+        const data = loadDatabase();
+        
+        if (this.type === 'SELECT') {
+            if (this.whereId) {
+                if (this.sql.includes('models')) {
+                    return data.models.find(m => m.id === params[0]);
+                } else if (this.sql.includes('labels')) {
+                    return data.labels.find(l => l.id === params[0]);
+                } else if (this.sql.includes('questions')) {
+                    return data.questions.find(q => q.id === params[0]);
+                }
+            } else if (this.isCount && this.whereModelId) {
+                const count = data.questions.filter(q => q.model_id === params[0]).length;
+                return { count };
+            }
         }
-        const row = this.stmt.getAsObject();
-        this.stmt.reset();
-        return row;
+        
+        return undefined;
     }
 
     all(...params) {
-        this.stmt.bind(params);
-        const rows = [];
-        while (this.stmt.step()) {
-            rows.push(this.stmt.getAsObject());
+        const data = loadDatabase();
+        
+        if (this.type === 'SELECT') {
+            if (this.sql.includes('SELECT * FROM models')) {
+                let results = [...data.models];
+                if (this.orderByDesc) {
+                    results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                }
+                return results;
+            } else if (this.sql.includes('SELECT * FROM labels') && this.whereModelId) {
+                return data.labels
+                    .filter(l => l.model_id === params[0])
+                    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else if (this.sql.includes('SELECT * FROM questions') && this.whereModelId) {
+                return data.questions
+                    .filter(q => q.model_id === params[0])
+                    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            }
         }
-        this.stmt.reset();
-        return rows;
+        
+        return [];
     }
 }
 
 // Wrapper to mimic better-sqlite3 Database API
 const db = {
-    prepare: (sql) => new PreparedStatement(sqliteDb, sql),
+    prepare: (sql) => new PreparedStatement(sql, dbData),
     exec: (sql) => {
-        sqliteDb.exec(sql);
-        saveDatabase();
+        // Handle CREATE TABLE and CREATE INDEX - just ensure structure exists
+        // The JSON structure is already set up, so we can ignore these
+        if (sql.includes('CREATE TABLE') || sql.includes('CREATE INDEX')) {
+            // Tables/indexes are handled by the JSON structure
+            return;
+        }
     }
 };
 

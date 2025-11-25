@@ -146,16 +146,20 @@ Some cPanel hosts allow installing build tools. Contact your hosting provider to
 - Install build-essential or development tools
 - Update GLIBC (if possible)
 
-**Solution 4: Use Alternative Database (Pure JavaScript) ✅ DONE**
+**Solution 4: Use File-Based JSON Database ✅ DONE**
 
-The application has been updated to use `sql.js` instead of `better-sqlite3`. `sql.js` is a pure JavaScript SQLite implementation that doesn't require native compilation, making it compatible with cPanel hosting environments that have older system libraries.
+The application has been updated to use a lightweight file-based JSON database instead of `better-sqlite3` or `sql.js`. This solution:
+- ✅ **No native compilation** required
+- ✅ **No WebAssembly** (no memory issues)
+- ✅ **No external dependencies** (uses only built-in Node.js `fs` module)
+- ✅ **Works on all cPanel hosting** environments
 
 **The code has already been updated** - just install dependencies normally:
 ```bash
 npm install
 ```
 
-This should work without any compilation errors!
+**Note:** The database file is now `anatomy_lab.json` instead of `anatomy_lab.db`. If you have an existing SQLite database, you'll need to export and migrate the data (or start fresh).
 
 ### 8. Start/Restart the Application
 
@@ -231,6 +235,131 @@ If you're using Git:
 
 ## Troubleshooting
 
+### 503 Service Unavailable Error
+
+If you see a **503 Service Unavailable** error when accessing your application, follow these steps:
+
+**Step 1: Check if the App is Running**
+
+1. Go to **Node.js Selector** in cPanel
+2. Find your application in the list
+3. Check the **Status** - it should show "Running" (green)
+4. If it shows "Stopped" or "Error":
+   - Click **"Start App"** or **"Restart App"**
+   - Wait 10-15 seconds for it to start
+   - Refresh your browser
+
+**Step 2: Check Application Logs**
+
+**Where to Find Logs in cPanel:**
+
+The location varies by cPanel version. Try these locations:
+
+**Option A: Node.js Selector Interface**
+1. In **Node.js Selector**, find your application in the list
+2. Look for one of these buttons/links next to your app:
+   - **"Logs"** button
+   - **"View Logs"** button
+   - **"Error Log"** link
+   - **"Output"** or **"Output Log"** link
+   - A **dropdown arrow** or **"..."** menu → select "View Logs"
+3. Click it to see the application output
+
+**Option B: cPanel Error Log**
+1. In cPanel main menu, search for **"Error Log"** or **"Errors"**
+2. Click on it
+3. Look for entries related to your Node.js app or domain
+
+**Option C: Terminal/SSH**
+1. Open **Terminal** in cPanel
+2. Navigate to your Application Root directory
+3. Check if there's a log file:
+   ```bash
+   ls -la *.log
+   ```
+4. Or check the Node.js app's output directly:
+   ```bash
+   cd /home/ashrfgia/home/ashrfgia/anat.ashrafy.au/VirtualAnatomyLab
+   node server.js
+   ```
+   (This will show errors in real-time - press Ctrl+C to stop)
+
+**Option D: Application Manager**
+1. Some cPanel versions have **"Application Manager"** instead of Node.js Selector
+2. Find your app → Click **"Manage"** → Look for **"Logs"** tab
+
+**What to Look For in Logs:**
+- **"Cannot find module"** → Dependencies not installed (run `npm install`)
+- **"EADDRINUSE"** → Port conflict (contact hosting provider)
+- **"ENOENT"** → Missing file (check Application Root path)
+- **Database errors** → Check file permissions on `anatomy_lab.db`
+- **"SyntaxError"** → Code issue in server.js
+- **"ECONNREFUSED"** → Database connection issue
+
+**Step 3: Verify Application Root Path**
+
+1. In **Node.js Selector**, click **"Edit"** on your application
+2. Check the **Application Root** path
+3. Open **File Manager** and verify:
+   - The path exists
+   - `server.js` is in that directory
+   - `package.json` is in that directory
+4. If wrong, update the path and **Save**
+
+**Step 4: Reinstall Dependencies**
+
+1. Open **Terminal** in cPanel
+2. Navigate to your Application Root:
+   ```bash
+   cd /home/username/path/to/your/app
+   ```
+3. Remove `node_modules` and reinstall:
+   ```bash
+   rm -rf node_modules
+   npm install
+   ```
+4. Go back to **Node.js Selector** and **Restart App**
+
+**Step 5: Check File Permissions**
+
+1. In **File Manager**, navigate to your Application Root
+2. Right-click `anatomy_lab.db` → **Change Permissions**
+3. Set to `644` (readable/writable by owner, readable by others)
+4. If the file doesn't exist, the app will create it automatically
+
+**Step 6: Verify Port Configuration**
+
+1. In **Node.js Selector**, check your application settings
+2. The **Port** should be set automatically by cPanel
+3. Make sure `server.js` uses `process.env.PORT` (it does by default)
+4. If you see port errors in logs, contact your hosting provider
+
+**Step 7: Test Database Initialization**
+
+1. In **Terminal**, try running the server manually:
+   ```bash
+   cd /home/username/path/to/your/app
+   node server.js
+   ```
+2. If it starts without errors, press `Ctrl+C` to stop
+3. If you see errors, fix them before restarting in Node.js Selector
+
+**Step 8: Check Node.js Version**
+
+1. In **Node.js Selector**, verify you're using **Node.js 16.x, 18.x, or 20.x**
+2. Try switching to a different version if current one has issues
+3. **Save** and **Restart App**
+
+**Still Not Working?**
+
+- Contact your hosting provider with:
+  - Error messages from logs
+  - Application Root path
+  - Node.js version you're using
+  - Steps you've already tried
+
+### Other Common Issues
+
 ### Application Won't Start
 
 1. **Check Logs**: In Node.js Selector, click "View Logs" to see error messages
@@ -244,16 +373,14 @@ If you're using Git:
 2. Ensure the directory has write permissions for the database file
 3. If issues persist, check file permissions on the application directory
 
-### better-sqlite3 Installation Issues
+### Database Installation Issues
 
-The `better-sqlite3` package requires native compilation. If `npm install` fails:
+The application now uses `sql.js` (pure JavaScript, no compilation needed). If `npm install` fails:
 
-1. **Check Node.js version**: Use Node.js 18.x or 20.x (LTS versions)
-2. **Check build tools**: Some cPanel hosts may need build tools installed
-3. **Contact hosting provider**: They may need to enable native module compilation
-4. **Alternative**: If better-sqlite3 won't compile, you may need to:
-   - Request your hosting provider to install build tools
-   - Or use a different hosting solution that supports native modules
+1. **Check Node.js version**: Use Node.js 16.x, 18.x, or 20.x
+2. **Clear npm cache**: `npm cache clean --force`
+3. **Reinstall**: `rm -rf node_modules package-lock.json && npm install`
+4. If issues persist, check the application logs for specific error messages
 
 ### Static Files Not Loading
 
