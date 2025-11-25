@@ -1,0 +1,14 @@
+# Redirect all requests to Node.js application
+# This is for cPanel Node.js apps
+# The Node.js Selector will handle routing, but this helps with static files
+
+# Enable rewrite engine
+RewriteEngine On
+
+# If the file exists, serve it directly
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# For Node.js apps, cPanel handles routing automatically
+# This file may not be needed if using cPanel Node.js Selector
+
