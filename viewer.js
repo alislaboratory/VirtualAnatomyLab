@@ -14,6 +14,7 @@ let mouse = new THREE.Vector2();
 let labels = [];
 let labelMode = false;
 let pendingLabelPosition = null;
+let pendingLabelEditId = null; // Track label being edited
 let labelsVisible = true; // Track labels visibility state
 let questions = [];
 let questionMode = false;
@@ -21,12 +22,18 @@ let pendingQuestionPosition = null;
 let pendingCameraView = null;
 let cameraAdjustmentMode = false;
 let quizMode = false;
+let previewMode = false; // Track if we're in preview mode
 let currentQuizQuestion = 0;
 let quizAnswers = [];
 let isAnimating = false;
 let currentModelId = null;
 let originHelper = null;
 const API_BASE = window.location.origin;
+
+// Authentication state
+let isLoggedIn = false;
+const VALID_USERS = ['christina', 'kosta', 'ali', 'patrick'];
+const VALID_PASSWORD = 'brachialplexus';
 
 // DOM elements
 const canvas = document.getElementById('viewer-canvas');
@@ -234,7 +241,137 @@ function initScene() {
 
     // Start animation loop
     animate();
+    
+    // Initialize authentication
+    initAuth();
 }
+
+// Authentication Functions
+function initAuth() {
+    // Check if user is already logged in
+    const savedLogin = localStorage.getItem('anatomyLabLogin');
+    if (savedLogin) {
+        try {
+            const loginData = JSON.parse(savedLogin);
+            if (loginData.username && loginData.timestamp) {
+                // Check if login is still valid (24 hours)
+                const hoursSinceLogin = (Date.now() - loginData.timestamp) / (1000 * 60 * 60);
+                if (hoursSinceLogin < 24) {
+                    isLoggedIn = true;
+                    hideLoginModal();
+                    showLogoutButton();
+                    return;
+                }
+            }
+        } catch (e) {
+            // Invalid saved login, clear it
+            localStorage.removeItem('anatomyLabLogin');
+        }
+    }
+    
+    // Show login modal if not logged in
+    showLoginModal();
+}
+
+function showLoginModal() {
+    const loginModal = document.getElementById('login-modal');
+    const container = document.querySelector('.container');
+    if (loginModal) {
+        loginModal.classList.remove('hidden');
+        if (container) {
+            container.style.pointerEvents = 'none';
+            container.style.opacity = '0.5';
+        }
+        setTimeout(() => {
+            const usernameInput = document.getElementById('login-username');
+            if (usernameInput) usernameInput.focus();
+        }, 100);
+    }
+}
+
+function hideLoginModal() {
+    const loginModal = document.getElementById('login-modal');
+    const container = document.querySelector('.container');
+    if (loginModal) {
+        loginModal.classList.add('hidden');
+        if (container) {
+            container.style.pointerEvents = 'auto';
+            container.style.opacity = '1';
+        }
+    }
+}
+
+function showLogoutButton() {
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.classList.remove('hidden');
+    }
+}
+
+function hideLogoutButton() {
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.classList.add('hidden');
+    }
+}
+
+function checkAuth() {
+    if (!isLoggedIn) {
+        showError('Please login to perform this action.');
+        return false;
+    }
+    return true;
+}
+
+// Handle login form submission
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+            
+            if (VALID_USERS.includes(username) && password === VALID_PASSWORD) {
+                // Successful login
+                isLoggedIn = true;
+                localStorage.setItem('anatomyLabLogin', JSON.stringify({
+                    username: username,
+                    timestamp: Date.now()
+                }));
+                
+                hideLoginModal();
+                showLogoutButton();
+                loginError.classList.add('hidden');
+                loginForm.reset();
+            } else {
+                // Failed login
+                loginError.textContent = 'Invalid username or password';
+                loginError.classList.remove('hidden');
+                document.getElementById('login-password').value = '';
+                document.getElementById('login-password').focus();
+            }
+        });
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                isLoggedIn = false;
+                localStorage.removeItem('anatomyLabLogin');
+                hideLogoutButton();
+                showLoginModal();
+                // Disable edit modes
+                if (labelMode) toggleLabelMode();
+                if (questionMode) toggleQuestionMode();
+                if (quizMode) exitQuiz();
+            }
+        });
+    }
+});
 
 // Handle file selection
 function handleFileSelect(event) {
@@ -577,6 +714,8 @@ async function selectModel(modelId) {
 
 // Open edit model modal
 function openEditModelModal(model) {
+    if (!checkAuth()) return;
+    
     modelDropdownMenu.classList.add('hidden');
     editModelModal.classList.remove('hidden');
     editModelNameInput.value = model.name;
@@ -595,6 +734,8 @@ function closeEditModelModal() {
 
 // Save edited model
 async function saveEditModel() {
+    if (!checkAuth()) return;
+    
     const modelId = editModelNameInput.dataset.modelId;
     const name = editModelNameInput.value.trim();
     const description = editModelDescriptionInput.value.trim();
@@ -684,6 +825,8 @@ function fallbackCopy(embedUrl) {
 
 // Delete model
 async function deleteModel(modelId, modelName) {
+    if (!checkAuth()) return;
+    
     if (!confirm(`Are you sure you want to delete "${modelName}"? This will also delete all associated labels and questions.`)) {
         return;
     }
@@ -767,6 +910,8 @@ function closeNewModelModal() {
 
 // Upload new model
 async function uploadNewModel() {
+    if (!checkAuth()) return;
+    
     const file = newModelFileInput.files[0];
     const name = modelNameInput.value.trim();
     const description = modelDescriptionInput.value.trim();
@@ -901,6 +1046,7 @@ async function loadModelFromDatabase(modelId) {
 
 // Label Management Functions
 function toggleLabelMode() {
+    if (!checkAuth()) return;
     if (cameraAdjustmentMode) return; // Don't allow toggling during camera adjustment
     labelMode = !labelMode;
     if (labelMode) {
@@ -965,7 +1111,9 @@ function closeLabelModal() {
     addLabelBtn.classList.remove('active');
     addLabelBtn.textContent = 'Add Label';
     canvas.style.cursor = 'default';
+    // Clear edit state but don't delete the label
     pendingLabelPosition = null;
+    pendingLabelEditId = null;
 }
 
 async function saveLabel() {
@@ -976,11 +1124,19 @@ async function saveLabel() {
     }
 
     const color = labelColorInput.value;
+    
+    // If we're editing an existing label, delete the old one first
+    if (pendingLabelEditId) {
+        await deleteLabel(pendingLabelEditId);
+        pendingLabelEditId = null;
+    }
+    
     await createLabel(text, pendingLabelPosition, color);
     closeLabelModal();
 }
 
 async function createLabel(text, position, color = '#667eea') {
+    if (!checkAuth()) return;
     if (!currentModelId) {
         showError('Please load a model first.');
         return;
@@ -1046,6 +1202,83 @@ async function createLabel(text, position, color = '#667eea') {
     }
 }
 
+// Helper functions for eye icons
+function getOpenEyeIcon() {
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+    </svg>`;
+}
+
+function getClosedEyeIcon() {
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+    </svg>`;
+}
+
+// Store toggle button references for syncing
+const labelToggleButtons = new Map(); // labelId -> [button1, button2, ...]
+const questionToggleButtons = new Map(); // questionId -> [button1, button2, ...]
+
+// Helper function to update all toggle buttons for a label
+function updateLabelToggleButtons(labelId, isVisible) {
+    const buttons = labelToggleButtons.get(labelId) || [];
+    // Filter out invalid buttons and update valid ones
+    const validButtons = buttons.filter(btn => btn && btn.parentElement);
+    validButtons.forEach(btn => {
+        btn.innerHTML = isVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+        btn.title = isVisible ? 'Hide label' : 'Show label';
+    });
+    // Update the stored buttons array to only include valid ones
+    if (validButtons.length !== buttons.length) {
+        labelToggleButtons.set(labelId, validButtons);
+    }
+}
+
+// Helper function to update all toggle buttons for a question
+function updateQuestionToggleButtons(questionId, isVisible) {
+    const buttons = questionToggleButtons.get(questionId) || [];
+    // Filter out invalid buttons and update valid ones
+    const validButtons = buttons.filter(btn => btn && btn.parentElement);
+    validButtons.forEach(btn => {
+        btn.innerHTML = isVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+        btn.title = isVisible ? 'Hide question' : 'Show question';
+    });
+    // Update the stored buttons array to only include valid ones
+    if (validButtons.length !== buttons.length) {
+        questionToggleButtons.set(questionId, validButtons);
+    }
+}
+
+// Unified function to toggle label visibility
+function toggleLabelVisibility(labelId) {
+    const labelData = labels.find(l => l.id === labelId);
+    if (labelData && labelData.object) {
+        const isVisible = labelData.object.visible;
+        labelData.object.visible = !isVisible;
+        if (labelData.object.element) {
+            labelData.object.element.style.display = !isVisible ? 'block' : 'none';
+        }
+        // Update all toggle buttons for this label
+        updateLabelToggleButtons(labelId, !isVisible);
+    }
+}
+
+// Unified function to toggle question visibility
+function toggleQuestionVisibility(questionId) {
+    const question = questions.find(q => q.id === questionId);
+    if (question && question.marker) {
+        const isVisible = question.marker.visible;
+        question.marker.visible = !isVisible;
+        if (question.marker.element) {
+            question.marker.element.style.display = !isVisible ? 'block' : 'none';
+        }
+        // Update all toggle buttons for this question
+        updateQuestionToggleButtons(questionId, !isVisible);
+    }
+}
+
 // Helper function to add hover popup to label
 function addLabelHoverPopup(labelDiv, labelId) {
     const popup = document.createElement('div');
@@ -1058,19 +1291,35 @@ function addLabelHoverPopup(labelDiv, labelId) {
         e.stopPropagation();
         const labelData = labels.find(l => l.id === labelId);
         if (labelData) {
-            // Delete the old label and create a new one at the same position
-            // This is a simple way to "edit" since labels don't have an edit API
-            deleteLabel(labelId).then(() => {
-                // Set up for new label at same position
-                pendingLabelPosition = labelData.position.clone();
-                labelTextInput.value = labelData.text;
-                labelColorInput.value = labelData.color;
-                labelModal.classList.remove('hidden');
-                labelMode = true;
-                addLabelBtn.classList.add('active');
-                addLabelBtn.textContent = 'Cancel';
-            });
+            // Store the label data for editing (don't delete yet)
+            pendingLabelEditId = labelId;
+            pendingLabelPosition = labelData.position.clone();
+            labelTextInput.value = labelData.text;
+            labelColorInput.value = labelData.color;
+            labelModal.classList.remove('hidden');
+            labelMode = true;
+            addLabelBtn.classList.add('active');
+            addLabelBtn.textContent = 'Cancel';
         }
+    };
+    
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'label-hover-btn label-hover-btn-toggle';
+    // Set initial state based on current visibility
+    const labelDataForToggle = labels.find(l => l.id === labelId);
+    const isCurrentlyVisible = labelDataForToggle && labelDataForToggle.object ? labelDataForToggle.object.visible : true;
+    toggleBtn.innerHTML = isCurrentlyVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+    toggleBtn.title = isCurrentlyVisible ? 'Hide label' : 'Show label';
+    
+    // Register this button for syncing
+    if (!labelToggleButtons.has(labelId)) {
+        labelToggleButtons.set(labelId, []);
+    }
+    labelToggleButtons.get(labelId).push(toggleBtn);
+    
+    toggleBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleLabelVisibility(labelId);
     };
     
     const deleteBtn = document.createElement('button');
@@ -1084,8 +1333,61 @@ function addLabelHoverPopup(labelDiv, labelId) {
     };
     
     popup.appendChild(editBtn);
+    popup.appendChild(toggleBtn);
     popup.appendChild(deleteBtn);
     labelDiv.appendChild(popup);
+    
+    // Use JavaScript hover events for more reliable behavior
+    let hoverTimeout = null;
+    let isHovering = false;
+    
+    const showPopup = () => {
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+        }
+        isHovering = true;
+        popup.style.display = 'flex';
+    };
+    
+    const hidePopup = () => {
+        isHovering = false;
+        // Use a longer delay to allow mouse movement between elements
+        hoverTimeout = setTimeout(() => {
+            if (!isHovering) {
+                popup.style.display = 'none';
+            }
+            hoverTimeout = null;
+        }, 200); // Increased delay
+    };
+    
+    // Track mouse enter/leave on both elements
+    labelDiv.addEventListener('mouseenter', (e) => {
+        e.stopPropagation();
+        showPopup();
+    });
+    labelDiv.addEventListener('mouseleave', (e) => {
+        e.stopPropagation();
+        hidePopup();
+    });
+    popup.addEventListener('mouseenter', (e) => {
+        e.stopPropagation();
+        showPopup();
+    });
+    popup.addEventListener('mouseleave', (e) => {
+        e.stopPropagation();
+        hidePopup();
+    });
+    
+    // Also handle mouse movement to catch cases where mouse moves directly to popup
+    labelDiv.addEventListener('mousemove', (e) => {
+        e.stopPropagation();
+        if (!isHovering) showPopup();
+    });
+    popup.addEventListener('mousemove', (e) => {
+        e.stopPropagation();
+        if (!isHovering) showPopup();
+    });
 }
 
 // Helper function to add hover popup to question
@@ -1117,6 +1419,25 @@ function addQuestionHoverPopup(questionDiv, questionData) {
         openQuestionModal(questionData);
     };
     
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'question-hover-btn question-hover-btn-toggle';
+    // Set initial state based on current visibility
+    const question = questions.find(q => q.id === questionData.id);
+    const isCurrentlyVisible = question && question.marker ? question.marker.visible : false;
+    toggleBtn.innerHTML = isCurrentlyVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+    toggleBtn.title = isCurrentlyVisible ? 'Hide question' : 'Show question';
+    
+    // Register this button for syncing
+    if (!questionToggleButtons.has(questionData.id)) {
+        questionToggleButtons.set(questionData.id, []);
+    }
+    questionToggleButtons.get(questionData.id).push(toggleBtn);
+    
+    toggleBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleQuestionVisibility(questionData.id);
+    };
+    
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'question-hover-btn question-hover-btn-delete';
     deleteBtn.textContent = 'Delete';
@@ -1129,9 +1450,62 @@ function addQuestionHoverPopup(questionDiv, questionData) {
     
     buttons.appendChild(previewBtn);
     buttons.appendChild(editBtn);
+    buttons.appendChild(toggleBtn);
     buttons.appendChild(deleteBtn);
     popup.appendChild(buttons);
     questionDiv.appendChild(popup);
+    
+    // Use JavaScript hover events for more reliable behavior
+    let hoverTimeout = null;
+    let isHovering = false;
+    
+    const showPopup = () => {
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = null;
+        }
+        isHovering = true;
+        popup.style.display = 'flex';
+    };
+    
+    const hidePopup = () => {
+        isHovering = false;
+        // Use a longer delay to allow mouse movement between elements
+        hoverTimeout = setTimeout(() => {
+            if (!isHovering) {
+                popup.style.display = 'none';
+            }
+            hoverTimeout = null;
+        }, 200); // Increased delay
+    };
+    
+    // Track mouse enter/leave on both elements
+    questionDiv.addEventListener('mouseenter', (e) => {
+        e.stopPropagation();
+        showPopup();
+    });
+    questionDiv.addEventListener('mouseleave', (e) => {
+        e.stopPropagation();
+        hidePopup();
+    });
+    popup.addEventListener('mouseenter', (e) => {
+        e.stopPropagation();
+        showPopup();
+    });
+    popup.addEventListener('mouseleave', (e) => {
+        e.stopPropagation();
+        hidePopup();
+    });
+    
+    // Also handle mouse movement to catch cases where mouse moves directly to popup
+    questionDiv.addEventListener('mousemove', (e) => {
+        e.stopPropagation();
+        if (!isHovering) showPopup();
+    });
+    popup.addEventListener('mousemove', (e) => {
+        e.stopPropagation();
+        if (!isHovering) showPopup();
+    });
 }
 
 // Preview a question - opens quiz UI and focuses on it
@@ -1140,24 +1514,30 @@ function previewQuestion(questionData) {
     const questionIndex = questions.findIndex(q => q.id === questionData.id);
     if (questionIndex === -1) return;
     
-    // Don't set quizMode - this is just a preview
-    // But we need to set currentQuizQuestion for updateQuizUI to work
+    // Set preview mode
+    previewMode = true;
+    quizMode = false; // Not in actual quiz mode
+    
+    // Set currentQuizQuestion for updateQuizUI to work
     currentQuizQuestion = questionIndex;
     quizAnswers = new Array(questions.length).fill(-1);
     
     // Open quiz overlay
     quizOverlay.classList.remove('hidden');
     
-    // Update UI to show this question (but disable navigation buttons for preview)
+    // Update UI to show this question
     updateQuizUI();
     
-    // Disable navigation buttons in preview mode
+    // Disable navigation buttons in preview mode, but enable submit for preview
     quizPrevBtn.disabled = true;
     quizNextBtn.disabled = true;
     const submitBtn = document.getElementById('quiz-submit-btn');
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'View Answer';
+    }
     
-    // Hide feedback area in preview
+    // Hide feedback area initially in preview
     if (quizFeedback) {
         quizFeedback.style.display = 'none';
     }
@@ -1172,24 +1552,11 @@ function previewQuestion(questionData) {
             // Camera animation complete
         });
     }
-    
-    // Add exit button handler - close preview when exit is clicked
-    const exitBtn = document.getElementById('exit-quiz-btn');
-    if (exitBtn) {
-        const exitHandler = () => {
-            quizOverlay.classList.add('hidden');
-            // Re-enable buttons
-            quizPrevBtn.disabled = false;
-            quizNextBtn.disabled = false;
-            if (submitBtn) submitBtn.disabled = false;
-            if (quizFeedback) quizFeedback.style.display = 'block';
-            exitBtn.removeEventListener('click', exitHandler);
-        };
-        exitBtn.addEventListener('click', exitHandler);
-    }
 }
 
 async function deleteLabel(labelId) {
+    if (!checkAuth()) return;
+    
     try {
         const response = await fetch(`${API_BASE}/api/labels/${labelId}`, {
             method: 'DELETE'
@@ -1205,6 +1572,8 @@ async function deleteLabel(labelId) {
             scene.remove(labelData.object);
             labelData.object.element.remove();
             labels.splice(index, 1);
+            // Clean up toggle button references
+            labelToggleButtons.delete(labelId);
             updateLabelsList();
         }
     } catch (error) {
@@ -1215,6 +1584,8 @@ async function deleteLabel(labelId) {
 
 function updateLabelsList() {
     labelsList.innerHTML = '';
+    // Don't clear all references - hover popup buttons should persist
+    // Just remove references for list buttons (they'll be recreated)
 
     if (labels.length === 0) {
         labelsList.innerHTML = '<p style="padding: 16px; color: #666; text-align: center;">No labels yet. Click "Add Label" to create one.</p>';
@@ -1241,6 +1612,30 @@ function updateLabelsList() {
 
         const actions = document.createElement('div');
         actions.className = 'label-item-actions';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn-small';
+        toggleBtn.style.background = '#6b7280';
+        toggleBtn.style.color = 'white';
+        toggleBtn.style.fontSize = '14px';
+        toggleBtn.style.padding = '6px 10px';
+        toggleBtn.style.display = 'flex';
+        toggleBtn.style.alignItems = 'center';
+        toggleBtn.style.justifyContent = 'center';
+        const isCurrentlyVisible = labelData.object ? labelData.object.visible : true;
+        toggleBtn.innerHTML = isCurrentlyVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+        toggleBtn.title = isCurrentlyVisible ? 'Hide label' : 'Show label';
+        
+        // Register this button for syncing
+        if (!labelToggleButtons.has(labelData.id)) {
+            labelToggleButtons.set(labelData.id, []);
+        }
+        labelToggleButtons.get(labelData.id).push(toggleBtn);
+        
+        toggleBtn.onclick = () => {
+            toggleLabelVisibility(labelData.id);
+        };
+        actions.appendChild(toggleBtn);
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn-small danger';
@@ -1298,6 +1693,8 @@ function clearLabels() {
         labelData.object.element.remove();
     });
     labels = [];
+    // Clear all toggle button references
+    labelToggleButtons.clear();
     labelsVisible = true; // Reset visibility state
     updateLabelsList();
     if (!labelsPanel.classList.contains('hidden')) {
@@ -1324,6 +1721,7 @@ function clearModel() {
 
 // Question Management Functions
 function toggleQuestionMode() {
+    if (!checkAuth()) return;
     if (quizMode) return; // Don't allow adding questions during quiz
     if (cameraAdjustmentMode) return; // Don't allow toggling during camera adjustment
     
@@ -1594,6 +1992,7 @@ async function saveQuestion() {
 }
 
 async function createQuestion(text, questionType, options, correctAnswer, position, cameraView) {
+    if (!checkAuth()) return;
     if (!currentModelId) {
         showError('Please load a model first.');
         return;
@@ -1691,6 +2090,7 @@ async function createQuestion(text, questionType, options, correctAnswer, positi
 }
 
 async function updateQuestion(questionId, text, questionType, options, correctAnswer, position, cameraView) {
+    if (!checkAuth()) return;
     if (!currentModelId) {
         showError('Please load a model first.');
         return;
@@ -1753,6 +2153,8 @@ async function updateQuestion(questionId, text, questionType, options, correctAn
 }
 
 async function deleteQuestion(questionId) {
+    if (!checkAuth()) return;
+    
     try {
         const response = await fetch(`${API_BASE}/api/questions/${questionId}`, {
             method: 'DELETE'
@@ -1768,6 +2170,8 @@ async function deleteQuestion(questionId) {
             scene.remove(questionData.marker);
             questionData.marker.element.remove();
             questions.splice(index, 1);
+            // Clean up toggle button references
+            questionToggleButtons.delete(questionId);
             updateQuestionsList();
             
             // Disable start quiz button if no questions
@@ -1827,6 +2231,30 @@ function updateQuestionsList() {
         };
         actions.appendChild(editBtn);
 
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn-small';
+        toggleBtn.style.background = '#6b7280';
+        toggleBtn.style.color = 'white';
+        toggleBtn.style.fontSize = '14px';
+        toggleBtn.style.padding = '6px 10px';
+        toggleBtn.style.display = 'flex';
+        toggleBtn.style.alignItems = 'center';
+        toggleBtn.style.justifyContent = 'center';
+        const isCurrentlyVisible = questionData.marker ? questionData.marker.visible : false;
+        toggleBtn.innerHTML = isCurrentlyVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+        toggleBtn.title = isCurrentlyVisible ? 'Hide question' : 'Show question';
+        
+        // Register this button for syncing
+        if (!questionToggleButtons.has(questionData.id)) {
+            questionToggleButtons.set(questionData.id, []);
+        }
+        questionToggleButtons.get(questionData.id).push(toggleBtn);
+        
+        toggleBtn.onclick = () => {
+            toggleQuestionVisibility(questionData.id);
+        };
+        actions.appendChild(toggleBtn);
+
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn-small danger';
         deleteBtn.textContent = 'Delete';
@@ -1845,6 +2273,8 @@ function clearQuestions() {
         questionData.marker.element.remove();
     });
     questions = [];
+    // Clear all toggle button references
+    questionToggleButtons.clear();
     startQuizBtn.disabled = true;
 }
 
@@ -1855,6 +2285,7 @@ function startQuiz() {
         return;
     }
 
+    previewMode = false; // Reset preview mode
     quizMode = true;
     currentQuizQuestion = 0;
     quizAnswers = new Array(questions.length).fill(-1);
@@ -1897,6 +2328,30 @@ function startQuiz() {
 }
 
 function exitQuiz() {
+    // If in preview mode, don't show confirmation and don't reset quiz state
+    if (previewMode) {
+        previewMode = false;
+        quizOverlay.classList.add('hidden');
+        
+        // Re-enable buttons
+        quizPrevBtn.disabled = false;
+        quizNextBtn.disabled = false;
+        const submitBtn = document.getElementById('quiz-submit-btn');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Quiz';
+        }
+        if (quizFeedback) {
+            quizFeedback.style.display = 'block';
+        }
+        
+        // Reset preview state
+        currentQuizQuestion = 0;
+        quizAnswers = [];
+        return;
+    }
+    
+    // Normal quiz exit
     if (confirm('Are you sure you want to exit the quiz? Your progress will be lost.')) {
         quizMode = false;
         quizOverlay.classList.add('hidden');
@@ -2178,6 +2633,40 @@ function showQuestionFeedback() {
 }
 
 function submitQuiz() {
+    // If in preview mode, show the answer instead of submitting
+    if (previewMode) {
+        const question = questions[currentQuizQuestion];
+        if (!question) return;
+        
+        // Show feedback for this question
+        const userAnswer = quizAnswers[currentQuizQuestion];
+        let isCorrect = false;
+        let correctAnswerText = '';
+        
+        const questionType = question.question_type || 'mcq';
+        if (questionType === 'text') {
+            correctAnswerText = question.correctAnswer;
+            isCorrect = userAnswer && userAnswer.toLowerCase().trim() === String(question.correctAnswer).toLowerCase().trim();
+        } else {
+            const correctIndex = parseInt(question.correctAnswer);
+            correctAnswerText = question.options[correctIndex];
+            isCorrect = userAnswer === correctIndex;
+        }
+        
+        // Show feedback
+        if (quizFeedback) {
+            quizFeedback.style.display = 'block';
+            quizFeedback.innerHTML = `
+                <div style="padding: 16px; background: ${isCorrect ? '#d4edda' : '#f8d7da'}; border-radius: 8px; margin-top: 16px;">
+                    <strong style="color: ${isCorrect ? '#155724' : '#721c24'};">${isCorrect ? '✓ Correct!' : '✗ Incorrect'}</strong>
+                    <p style="margin: 8px 0 0 0; color: #333;">Correct answer: ${correctAnswerText}</p>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    // Normal quiz submission
     // Show feedback for current question if not shown yet
     const currentAnswer = quizAnswers[currentQuizQuestion];
     if (currentAnswer === -1 || currentAnswer === '' || currentAnswer === null) {

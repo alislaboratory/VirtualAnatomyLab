@@ -7,29 +7,95 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Login Modal -->
+    <div id="login-modal" class="login-modal hidden">
+        <div class="login-modal-content">
+            <div class="login-header">
+                <h2>UNSW Virtual Anatomy Lab - Admin Panel</h2>
+                <p>Please login to continue</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" name="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" name="password" required autocomplete="current-password">
+                </div>
+                <div id="login-error" class="login-error hidden"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logout Button -->
+    <div id="logout-btn" class="logout-btn hidden" title="Logout">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+    </div>
+
     <div class="container">
         <header>
-            <h1>UNSW Virtual Anatomy Lab</h1>
-            <p>Interactive 3D Anatomy Model Viewer</p>
+            <div class="header-content">
+                <h1>
+                    <span class="title-main">UNSW</span>
+                    <span class="title-accent">Virtual</span>
+                    <span class="title-main">Anatomy Lab</span>
+                </h1>
+                <p class="subtitle">Interactive 3D Anatomy Model Viewer</p>
+            </div>
         </header>
         
         <div class="controls">
-            <div class="custom-dropdown">
-                <button id="model-select-btn" class="model-select-btn">
-                    <span id="model-select-text">Select a model...</span>
-                    <span class="dropdown-arrow">▼</span>
-                </button>
-                <div id="model-dropdown-menu" class="dropdown-menu hidden">
-                    <div id="model-dropdown-list" class="dropdown-list"></div>
+            <div class="control-group">
+                <div class="control-group-label">Model</div>
+                <div class="control-group-buttons">
+                    <div class="custom-dropdown">
+                        <button id="model-select-btn" class="model-select-btn">
+                            <span id="model-select-text">Select a model...</span>
+                            <span class="dropdown-arrow">▼</span>
+                        </button>
+                        <div id="model-dropdown-menu" class="dropdown-menu hidden">
+                            <div id="model-dropdown-list" class="dropdown-list"></div>
+                        </div>
+                    </div>
+                    <button id="reset-camera" class="btn">Reset Camera</button>
                 </div>
             </div>
-            <button id="reset-camera" class="btn">Reset Camera</button>
-            <button id="add-label-btn" class="btn btn-primary">Add Label</button>
-            <button id="toggle-labels-btn" class="btn">Show/Hide Labels</button>
-            <button id="view-labels-btn" class="btn">View Labels List</button>
-            <button id="add-question-btn" class="btn btn-question">Add Question</button>
-            <button id="view-questions-btn" class="btn">View Questions List</button>
-            <button id="start-quiz-btn" class="btn btn-quiz">Start Quiz</button>
+            
+            <div class="control-separator"></div>
+            
+            <div class="control-group">
+                <div class="control-group-label">Labels</div>
+                <div class="control-group-buttons">
+                    <button id="add-label-btn" class="btn btn-primary">Add Label</button>
+                    <button id="toggle-labels-btn" class="btn">Show/Hide Labels</button>
+                    <button id="view-labels-btn" class="btn">View Labels List</button>
+                </div>
+            </div>
+            
+            <div class="control-separator"></div>
+            
+            <div class="control-group">
+                <div class="control-group-label">Questions</div>
+                <div class="control-group-buttons">
+                    <button id="add-question-btn" class="btn btn-question">Add Question</button>
+                    <button id="view-questions-btn" class="btn">View Questions List</button>
+                </div>
+            </div>
+            
+            <div class="control-separator"></div>
+            
+            <div class="control-group">
+                <div class="control-group-label">Quiz</div>
+                <div class="control-group-buttons">
+                    <button id="start-quiz-btn" class="btn btn-quiz">Start Quiz</button>
+                </div>
+            </div>
         </div>
 
         <div id="loading" class="loading hidden">
