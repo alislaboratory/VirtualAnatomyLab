@@ -4,3 +4,18 @@ anatomy_lab.db-journal
 *.log
 .env
 .DS_Store
+
+# Uploaded model files (keep directory structure)
+models/*.glb
+!models/.gitkeep
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+.DS_Store

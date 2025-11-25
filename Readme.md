@@ -79,11 +79,13 @@ The 3D anatomical models in this project were created using a simple, accessible
 
 ## Installation
 
-### Prerequisites
+### Local Development
+
+#### Prerequisites
 - Node.js (v14 or higher)
 - npm (Node Package Manager)
 
-### Setup Steps
+#### Setup Steps
 
 1. **Clone the repository**
    ```bash
@@ -104,6 +106,18 @@ The 3D anatomical models in this project were created using a simple, accessible
 4. **Access the application**
    - Open your browser and navigate to `http://localhost:3000`
    - The database will be automatically created on first run
+
+### Production Deployment (cPanel)
+
+For deploying to cPanel hosting, see the **[DEPLOYMENT.md](DEPLOYMENT.md)** guide for detailed step-by-step instructions.
+
+**Quick Summary:**
+1. Upload files to your cPanel `public_html` directory
+2. Use cPanel's Node.js Selector to create the application
+3. Set Application Startup File to `server.js`
+4. Install dependencies via Terminal: `npm install`
+5. Start/Restart the application in Node.js Selector
+6. Access via your configured domain/subdomain
 
 ## Usage Guide
 

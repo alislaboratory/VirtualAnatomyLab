@@ -2,6 +2,20 @@
 
 This guide will help you deploy the Virtual Anatomy Lab application to your cPanel hosting.
 
+> **💡 Using Git?** See **[GIT_DEPLOYMENT.md](GIT_DEPLOYMENT.md)** for Git-based deployment instructions.
+
+## Quick Start (TL;DR)
+
+1. Upload all files to `public_html/anatomy-lab` (via File Manager or FTP)
+2. In cPanel, go to **Node.js Selector** → **Create Application**
+3. Set:
+   - **Application Root**: `/home/username/public_html/anatomy-lab`
+   - **Application Startup File**: `server.js`
+   - **Node.js Version**: 18.x or 20.x
+4. Open Terminal in cPanel and run: `cd ~/public_html/anatomy-lab && npm install`
+5. Click **Restart App** in Node.js Selector
+6. Visit your application URL
+
 ## Prerequisites
 
 - cPanel hosting with Node.js support enabled
@@ -103,6 +117,17 @@ In the Node.js Selector, you can set environment variables:
 1. The SQLite database (`anatomy_lab.db`) will be created automatically
 2. Ensure the directory has write permissions for the database file
 3. If issues persist, check file permissions on the application directory
+
+### better-sqlite3 Installation Issues
+
+The `better-sqlite3` package requires native compilation. If `npm install` fails:
+
+1. **Check Node.js version**: Use Node.js 18.x or 20.x (LTS versions)
+2. **Check build tools**: Some cPanel hosts may need build tools installed
+3. **Contact hosting provider**: They may need to enable native module compilation
+4. **Alternative**: If better-sqlite3 won't compile, you may need to:
+   - Request your hosting provider to install build tools
+   - Or use a different hosting solution that supports native modules
 
 ### Static Files Not Loading
 
