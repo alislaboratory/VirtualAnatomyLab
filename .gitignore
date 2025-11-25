@@ -3,6 +3,7 @@ anatomy_lab.db
 anatomy_lab.db-journal
 anatomy_lab.json
 *.log
+admin_actions.log
 .env
 .DS_Store
 

@@ -22,6 +22,34 @@ if (!fs.existsSync(modelsDir)) {
     fs.mkdirSync(modelsDir, { recursive: true });
 }
 
+// Logging system for admin actions
+const logFilePath = 'admin_actions.log';
+
+function logAction(username, action, details = '') {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] [${username || 'UNKNOWN'}] ${action}${details ? ' - ' + details : ''}\n`;
+    
+    // Append to log file asynchronously (non-blocking)
+    fs.appendFile(logFilePath, logEntry, (err) => {
+        if (err) {
+            console.error('Error writing to log file:', err);
+        }
+    });
+}
+
+// Helper to get username from request
+function getUsernameFromRequest(req) {
+    // Try to get username from headers first (for API calls)
+    if (req.headers['x-username']) {
+        return req.headers['x-username'];
+    }
+    // Fallback to body
+    if (req.body && req.body.username) {
+        return req.body.username;
+    }
+    return 'UNKNOWN';
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -377,6 +405,8 @@ app.get('/api/models/:id', (req, res) => {
         if (!model) {
             return res.status(404).json({ error: 'Model not found' });
         }
+        const username = getUsernameFromRequest(req);
+        logAction(username, 'VIEW_MODEL', `Model: ${model.name} (ID: ${req.params.id})`);
         res.json(model);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -391,18 +421,21 @@ app.post('/api/models', upload.single('model'), (req, res) => {
 
         const modelId = uuidv4();
         const filePath = `/models/${req.file.filename}`;
+        const modelName = req.body.name || req.file.originalname;
 
         db.prepare(`
             INSERT INTO models (id, name, description, file_path)
             VALUES (?, ?, ?, ?)
         `).run(
             modelId,
-            req.body.name || req.file.originalname,
+            modelName,
             req.body.description || '',
             filePath
         );
 
         const model = db.prepare('SELECT * FROM models WHERE id = ?').get(modelId);
+        const username = getUsernameFromRequest(req);
+        logAction(username, 'CREATE_MODEL', `Model: ${modelName} (ID: ${modelId}, File: ${req.file.originalname})`);
         res.status(201).json(model);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -412,6 +445,11 @@ app.post('/api/models', upload.single('model'), (req, res) => {
 app.put('/api/models/:id', (req, res) => {
     try {
         const { name, description } = req.body;
+        const oldModel = db.prepare('SELECT * FROM models WHERE id = ?').get(req.params.id);
+        if (!oldModel) {
+            return res.status(404).json({ error: 'Model not found' });
+        }
+        
         db.prepare(`
             UPDATE models 
             SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
@@ -419,9 +457,8 @@ app.put('/api/models/:id', (req, res) => {
         `).run(name, description, req.params.id);
 
         const model = db.prepare('SELECT * FROM models WHERE id = ?').get(req.params.id);
-        if (!model) {
-            return res.status(404).json({ error: 'Model not found' });
-        }
+        const username = getUsernameFromRequest(req);
+        logAction(username, 'EDIT_MODEL', `Model: ${oldModel.name} -> ${name} (ID: ${req.params.id})`);
         res.json(model);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -443,6 +480,8 @@ app.delete('/api/models/:id', (req, res) => {
 
         // Delete from database (cascade will delete labels and questions)
         db.prepare('DELETE FROM models WHERE id = ?').run(req.params.id);
+        const username = getUsernameFromRequest(req);
+        logAction(username, 'DELETE_MODEL', `Model: ${model.name} (ID: ${req.params.id})`);
         res.json({ message: 'Model deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -467,6 +506,7 @@ app.post('/api/models/:modelId/labels', (req, res) => {
     try {
         const { text, color, position_x, position_y, position_z } = req.body;
         const labelId = uuidv4();
+        const model = db.prepare('SELECT * FROM models WHERE id = ?').get(req.params.modelId);
 
         db.prepare(`
             INSERT INTO labels (id, model_id, text, color, position_x, position_y, position_z)
@@ -474,6 +514,8 @@ app.post('/api/models/:modelId/labels', (req, res) => {
         `).run(labelId, req.params.modelId, text, color, position_x, position_y, position_z);
 
         const label = db.prepare('SELECT * FROM labels WHERE id = ?').get(labelId);
+        const username = getUsernameFromRequest(req);
+        logAction(username, 'CREATE_LABEL', `Label: "${text}" for Model: ${model ? model.name : req.params.modelId} (ID: ${labelId})`);
         res.status(201).json(label);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -482,7 +524,15 @@ app.post('/api/models/:modelId/labels', (req, res) => {
 
 app.delete('/api/labels/:id', (req, res) => {
     try {
+        const label = db.prepare('SELECT * FROM labels WHERE id = ?').get(req.params.id);
         db.prepare('DELETE FROM labels WHERE id = ?').run(req.params.id);
+        const username = getUsernameFromRequest(req);
+        if (label) {
+            const model = db.prepare('SELECT * FROM models WHERE id = ?').get(label.model_id);
+            logAction(username, 'DELETE_LABEL', `Label: "${label.text}" from Model: ${model ? model.name : label.model_id} (ID: ${req.params.id})`);
+        } else {
+            logAction(username, 'DELETE_LABEL', `Label ID: ${req.params.id}`);
+        }
         res.json({ message: 'Label deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -570,6 +620,9 @@ app.post('/api/models/:modelId/questions', (req, res) => {
             options: JSON.parse(question.options),
             question_type: question.question_type || 'mcq'
         };
+        const model = db.prepare('SELECT * FROM models WHERE id = ?').get(req.params.modelId);
+        const username = getUsernameFromRequest(req);
+        logAction(username, 'CREATE_QUESTION', `Question: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" for Model: ${model ? model.name : req.params.modelId} (ID: ${questionId}, Type: ${question_type})`);
         res.status(201).json(parsedQuestion);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -659,8 +712,27 @@ app.put('/api/questions/:id', (req, res) => {
 
 app.delete('/api/questions/:id', (req, res) => {
     try {
+        const question = db.prepare('SELECT * FROM questions WHERE id = ?').get(req.params.id);
         db.prepare('DELETE FROM questions WHERE id = ?').run(req.params.id);
+        const username = getUsernameFromRequest(req);
+        if (question) {
+            const model = db.prepare('SELECT * FROM models WHERE id = ?').get(question.model_id);
+            logAction(username, 'DELETE_QUESTION', `Question: "${question.text.substring(0, 50)}${question.text.length > 50 ? '...' : ''}" from Model: ${model ? model.name : question.model_id} (ID: ${req.params.id})`);
+        } else {
+            logAction(username, 'DELETE_QUESTION', `Question ID: ${req.params.id}`);
+        }
         res.json({ message: 'Question deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Logging endpoint for client-side events (login, logout, copy embed link)
+app.post('/api/log', (req, res) => {
+    try {
+        const { username, action, details } = req.body;
+        logAction(username || 'UNKNOWN', action, details || '');
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

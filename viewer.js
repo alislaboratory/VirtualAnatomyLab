@@ -32,8 +32,61 @@ const API_BASE = window.location.origin;
 
 // Authentication state
 let isLoggedIn = false;
+let currentUsername = null;
 const VALID_USERS = ['christina', 'kosta', 'ali', 'patrick'];
 const VALID_PASSWORD = 'brachialplexus';
+
+// Helper function to get current username
+function getCurrentUsername() {
+    if (!isLoggedIn) return null;
+    const savedLogin = localStorage.getItem('anatomyLabLogin');
+    if (savedLogin) {
+        try {
+            const loginData = JSON.parse(savedLogin);
+            return loginData.username || null;
+        } catch (e) {
+            return null;
+        }
+    }
+    return currentUsername;
+}
+
+// Helper function to log actions to server
+async function logToServer(action, details = '', forceUsername = null) {
+    // For failed logins, we want to log even if not logged in
+    // Use forceUsername if provided, otherwise get current username
+    const username = forceUsername || getCurrentUsername();
+    
+    // Only skip logging if no username available (except for failed logins which use forceUsername)
+    if (!username && !forceUsername) return;
+    
+    try {
+        await fetch(`${API_BASE}/api/log`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username || 'UNKNOWN', action, details })
+        });
+    } catch (error) {
+        console.error('Error logging action:', error);
+    }
+}
+
+// Helper function to add username header to fetch requests
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    const username = getCurrentUsername();
+    if (username && options) {
+        if (!options.headers) {
+            options.headers = {};
+        }
+        if (options.headers instanceof Headers) {
+            options.headers.set('x-username', username);
+        } else if (typeof options.headers === 'object') {
+            options.headers['x-username'] = username;
+        }
+    }
+    return originalFetch(url, options);
+};
 
 // DOM elements
 const canvas = document.getElementById('viewer-canvas');
@@ -263,6 +316,7 @@ function initAuth() {
                 const hoursSinceLogin = (Date.now() - loginData.timestamp) / (1000 * 60 * 60);
                 if (hoursSinceLogin < 24) {
                     isLoggedIn = true;
+                    currentUsername = loginData.username;
                     hideLoginModal();
                     showLogoutButton();
                     return;
@@ -343,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (VALID_USERS.includes(username) && password === VALID_PASSWORD) {
                 // Successful login
                 isLoggedIn = true;
+                currentUsername = username;
                 localStorage.setItem('anatomyLabLogin', JSON.stringify({
                     username: username,
                     timestamp: Date.now()
@@ -352,12 +407,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 showLogoutButton();
                 loginError.classList.add('hidden');
                 loginForm.reset();
+                
+                // Log successful login
+                logToServer('LOGIN_SUCCESS', `Username: ${username}`);
             } else {
                 // Failed login
                 loginError.textContent = 'Invalid username or password';
                 loginError.classList.remove('hidden');
                 document.getElementById('login-password').value = '';
                 document.getElementById('login-password').focus();
+                
+                // Log failed login attempt (use forceUsername since user is not logged in)
+                logToServer('LOGIN_FAILED', `Attempted username: ${username || 'UNKNOWN'}`, username || 'UNKNOWN');
             }
         });
     }
@@ -365,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
             if (confirm('Are you sure you want to logout?')) {
+                const username = getCurrentUsername();
                 isLoggedIn = false;
                 localStorage.removeItem('anatomyLabLogin');
                 hideLogoutButton();
@@ -373,6 +435,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (labelMode) toggleLabelMode();
                 if (questionMode) toggleQuestionMode();
                 if (quizMode) exitQuiz();
+                
+                // Log logout
+                if (username) {
+                    logToServer('LOGOUT', `Username: ${username}`);
+                }
+                currentUsername = null;
             }
         });
     }
@@ -703,7 +771,7 @@ async function loadAvailableModels() {
             embedBtn.title = 'Copy embed URL';
             embedBtn.onclick = (e) => {
                 e.stopPropagation();
-                copyEmbedUrl(model.id, embedBtn);
+                copyEmbedUrl(model.id, model.name, embedBtn);
             };
             
             actions.appendChild(editBtn);
@@ -797,8 +865,11 @@ async function saveEditModel() {
 }
 
 // Copy embed URL to clipboard
-function copyEmbedUrl(modelId, buttonElement) {
+function copyEmbedUrl(modelId, modelName, buttonElement) {
     const embedUrl = `${API_BASE}/embed/${modelId}`;
+    
+    // Log the action
+    logToServer('COPY_EMBED_LINK', `Model: ${modelName || modelId} (ID: ${modelId})`);
     
     // Show visual feedback on button
     const originalText = buttonElement.innerHTML;
@@ -1009,8 +1080,12 @@ async function uploadNewModel() {
                 reject(new Error('Upload cancelled'));
             });
 
-            // Start upload
+            // Start upload - add username header
             xhr.open('POST', `${API_BASE}/api/models`);
+            const username = getCurrentUsername();
+            if (username) {
+                xhr.setRequestHeader('x-username', username);
+            }
             xhr.send(formData);
         });
 
@@ -1054,6 +1129,9 @@ async function loadModelFromDatabase(modelId) {
         
         const model = await modelResponse.json();
         currentModelId = model.id;
+        
+        // Log model view (server already logs this, but we can add client-side logging too)
+        // The server-side logging happens in the GET /api/models/:id endpoint
         
         // Load the GLB file
         const fileResponse = await fetch(model.file_path);
