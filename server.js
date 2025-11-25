@@ -48,7 +48,10 @@ const upload = multer({
 // Simple file-based JSON database (no WebAssembly, no memory issues)
 const dbPath = 'anatomy_lab.json';
 
-// Load database from file or create new one
+// Keep database in memory for fast access
+let dbData = { models: [], labels: [], questions: [] };
+
+// Load database from file or create new one (synchronous for startup)
 function loadDatabase() {
     if (fs.existsSync(dbPath)) {
         try {
@@ -62,13 +65,33 @@ function loadDatabase() {
     return { models: [], labels: [], questions: [] };
 }
 
-// Save database to file
-function saveDatabase(data) {
-    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
+// Save database to file asynchronously (non-blocking)
+let saveTimeout = null;
+function saveDatabase(data = null) {
+    // Use the in-memory data if no data provided
+    const dataToSave = data || dbData;
+    
+    // Debounce writes - only save after 100ms of no activity
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+    }
+    
+    saveTimeout = setTimeout(() => {
+        try {
+            fs.writeFile(dbPath, JSON.stringify(dataToSave, null, 2), 'utf8', (err) => {
+                if (err) {
+                    console.error('Error saving database:', err);
+                }
+            });
+        } catch (e) {
+            console.error('Error saving database:', e);
+        }
+        saveTimeout = null;
+    }, 100); // Wait 100ms before writing
 }
 
-// Initialize database
-let dbData = loadDatabase();
+// Initialize database (load once at startup)
+dbData = loadDatabase();
 
 // Ensure question_type column exists (migration)
 dbData.questions.forEach(q => {
@@ -76,7 +99,11 @@ dbData.questions.forEach(q => {
         q.question_type = 'mcq';
     }
 });
-saveDatabase(dbData);
+
+// Save initial state if migration occurred
+if (dbData.questions.some(q => !q.hasOwnProperty('question_type'))) {
+    fs.writeFileSync(dbPath, JSON.stringify(dbData, null, 2), 'utf8');
+}
 
 // Helper class to mimic better-sqlite3 API
 class PreparedStatement {
@@ -126,7 +153,8 @@ class PreparedStatement {
     }
 
     run(...params) {
-        const data = loadDatabase();
+        // Use in-memory database directly (no file read)
+        const data = dbData;
         
         if (this.type === 'INSERT') {
             if (this.table === 'models') {
@@ -215,13 +243,17 @@ class PreparedStatement {
             }
         }
         
-        saveDatabase(data);
+        // Update in-memory database
+        dbData = data;
+        // Save to disk asynchronously (non-blocking)
+        saveDatabase();
         this.dbDataRef = data;
         return { changes: 1 };
     }
 
     get(...params) {
-        const data = loadDatabase();
+        // Use in-memory database directly (no file read)
+        const data = dbData;
         
         if (this.type === 'SELECT') {
             if (this.whereId) {
@@ -242,7 +274,8 @@ class PreparedStatement {
     }
 
     all(...params) {
-        const data = loadDatabase();
+        // Use in-memory database directly (no file read)
+        const data = dbData;
         
         if (this.type === 'SELECT') {
             if (this.sql.includes('SELECT * FROM models')) {

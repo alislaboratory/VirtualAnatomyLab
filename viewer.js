@@ -58,6 +58,8 @@ const uploadModelBtn = document.getElementById('upload-model-btn');
 const fileNameDisplay = document.getElementById('file-name-display');
 const fileInputLabelText = document.getElementById('file-input-label-text');
 const loadingEl = document.getElementById('loading');
+const dbLoadingEl = document.getElementById('db-loading');
+const dbLoadingTextEl = document.getElementById('db-loading-text');
 const errorEl = document.getElementById('error');
 const infoEl = document.getElementById('info');
 const addLabelBtn = document.getElementById('add-label-btn');
@@ -572,6 +574,22 @@ function showLoading(show) {
     }
 }
 
+// Show/hide database operation loading indicator
+function showDbLoading(show, message = 'Processing...') {
+    if (show) {
+        if (dbLoadingTextEl) {
+            dbLoadingTextEl.textContent = message;
+        }
+        if (dbLoadingEl) {
+            dbLoadingEl.classList.remove('hidden');
+        }
+    } else {
+        if (dbLoadingEl) {
+            dbLoadingEl.classList.add('hidden');
+        }
+    }
+}
+
 // Show error message
 function showError(message) {
     errorEl.textContent = message;
@@ -745,6 +763,7 @@ async function saveEditModel() {
         return;
     }
 
+    showDbLoading(true, 'Updating model...');
     try {
         const response = await fetch(`${API_BASE}/api/models/${modelId}`, {
             method: 'PUT',
@@ -756,6 +775,7 @@ async function saveEditModel() {
             throw new Error('Failed to update model');
         }
 
+        showDbLoading(true, 'Reloading models...');
         // Reload model list
         await loadAvailableModels();
         
@@ -765,9 +785,11 @@ async function saveEditModel() {
         }
 
         closeEditModelModal();
+        showDbLoading(false);
     } catch (error) {
         console.error('Error updating model:', error);
         showError('Failed to update model: ' + error.message);
+        showDbLoading(false);
     }
 }
 
@@ -926,7 +948,7 @@ async function uploadNewModel() {
         return;
     }
 
-    showLoading(true);
+    showDbLoading(true, 'Uploading model...');
     uploadModelBtn.disabled = true;
 
     try {
@@ -937,6 +959,7 @@ async function uploadNewModel() {
             formData.append('description', description);
         }
 
+        showDbLoading(true, 'Uploading file to server...');
         const response = await fetch(`${API_BASE}/api/models`, {
             method: 'POST',
             body: formData
@@ -947,11 +970,14 @@ async function uploadNewModel() {
             throw new Error(error.error || 'Failed to upload model');
         }
 
+        showDbLoading(true, 'Saving to database...');
         const model = await response.json();
 
+        showDbLoading(true, 'Reloading models...');
         // Reload model list
         await loadAvailableModels();
 
+        showDbLoading(true, 'Loading model...');
         // Update dropdown text and load the model
         modelSelectText.textContent = model.name;
         await loadModelFromDatabase(model.id);
@@ -959,11 +985,11 @@ async function uploadNewModel() {
         // Close modal
         closeNewModelModal();
 
-        showLoading(false);
+        showDbLoading(false);
     } catch (error) {
         console.error('Error uploading model:', error);
         showError('Failed to upload model: ' + error.message);
-        showLoading(false);
+        showDbLoading(false);
         uploadModelBtn.disabled = false;
     }
 }
@@ -1142,6 +1168,7 @@ async function createLabel(text, position, color = '#667eea') {
         return;
     }
 
+    showDbLoading(true, 'Saving label...');
     try {
         // Save to database
         const response = await fetch(`${API_BASE}/api/models/${currentModelId}/labels`, {
@@ -1196,9 +1223,11 @@ async function createLabel(text, position, color = '#667eea') {
         }
         
         updateLabelsList();
+        showDbLoading(false);
     } catch (error) {
         console.error('Error creating label:', error);
         showError('Failed to save label: ' + error.message);
+        showDbLoading(false);
     }
 }
 
@@ -1557,6 +1586,7 @@ function previewQuestion(questionData) {
 async function deleteLabel(labelId) {
     if (!checkAuth()) return;
     
+    showDbLoading(true, 'Deleting label...');
     try {
         const response = await fetch(`${API_BASE}/api/labels/${labelId}`, {
             method: 'DELETE'
@@ -1576,9 +1606,11 @@ async function deleteLabel(labelId) {
             labelToggleButtons.delete(labelId);
             updateLabelsList();
         }
+        showDbLoading(false);
     } catch (error) {
         console.error('Error deleting label:', error);
         showError('Failed to delete label: ' + error.message);
+        showDbLoading(false);
     }
 }
 
@@ -1780,16 +1812,16 @@ function openQuestionModal(questionData = null) {
         updateCameraViewStatus();
     } else {
         questionModalTitle.textContent = 'Add Question';
-        questionTextInput.value = '';
+    questionTextInput.value = '';
         questionTypeSelect.value = 'mcq';
         handleQuestionTypeChange();
-        for (let i = 0; i < 4; i++) {
-            document.getElementById(`option-${i}`).value = '';
-            document.getElementById(`correct-${i}`).checked = (i === 0);
-        }
+    for (let i = 0; i < 4; i++) {
+        document.getElementById(`option-${i}`).value = '';
+        document.getElementById(`correct-${i}`).checked = (i === 0);
+    }
         textCorrectAnswerInput.value = '';
-        pendingCameraView = null;
-        updateCameraViewStatus();
+    pendingCameraView = null;
+    updateCameraViewStatus();
     }
     questionTextInput.focus();
 }
@@ -1920,24 +1952,24 @@ async function saveQuestion() {
                 return;
             }
         } else {
-            for (let i = 0; i < 4; i++) {
-                const optionText = document.getElementById(`option-${i}`).value.trim();
-                if (optionText) {
-                    options.push(optionText);
-                    if (document.getElementById(`correct-${i}`).checked) {
+    for (let i = 0; i < 4; i++) {
+        const optionText = document.getElementById(`option-${i}`).value.trim();
+        if (optionText) {
+            options.push(optionText);
+            if (document.getElementById(`correct-${i}`).checked) {
                         correctAnswer = options.length - 1;
-                    }
-                }
             }
-            
-            if (options.length < 2) {
-                showError('Please provide at least 2 answer options.');
-                return;
-            }
-            
+        }
+    }
+
+    if (options.length < 2) {
+        showError('Please provide at least 2 answer options.');
+        return;
+    }
+
             if (correctAnswer === null) {
-                showError('Please select the correct answer.');
-                return;
+        showError('Please select the correct answer.');
+        return;
             }
         }
         
@@ -1979,15 +2011,15 @@ async function saveQuestion() {
                 showError('Please select the correct answer.');
                 return;
             }
-        }
-        
-        if (!pendingCameraView) {
-            showError('Please add a camera view before saving the question.');
-            return;
-        }
+    }
+
+    if (!pendingCameraView) {
+        showError('Please add a camera view before saving the question.');
+        return;
+    }
 
         await createQuestion(text, questionType, options, correctAnswer, pendingQuestionPosition, pendingCameraView);
-        closeQuestionModal();
+    closeQuestionModal();
     }
 }
 
@@ -1998,6 +2030,7 @@ async function createQuestion(text, questionType, options, correctAnswer, positi
         return;
     }
 
+    showDbLoading(true, 'Saving question...');
     try {
         // Save to database
         const response = await fetch(`${API_BASE}/api/models/${currentModelId}/questions`, {
@@ -2083,9 +2116,11 @@ async function createQuestion(text, questionType, options, correctAnswer, positi
         
         // Update questions list
         updateQuestionsList();
+        showDbLoading(false);
     } catch (error) {
         console.error('Error creating question:', error);
         showError('Failed to save question: ' + error.message);
+        showDbLoading(false);
     }
 }
 
@@ -2096,6 +2131,7 @@ async function updateQuestion(questionId, text, questionType, options, correctAn
         return;
     }
 
+    showDbLoading(true, 'Updating question...');
     try {
         const response = await fetch(`${API_BASE}/api/questions/${questionId}`, {
             method: 'PUT',
@@ -2146,15 +2182,18 @@ async function updateQuestion(questionId, text, questionType, options, correctAn
         }
 
         updateQuestionsList();
+        showDbLoading(false);
     } catch (error) {
         console.error('Error updating question:', error);
         showError('Failed to update question: ' + error.message);
+        showDbLoading(false);
     }
 }
 
 async function deleteQuestion(questionId) {
     if (!checkAuth()) return;
     
+    showDbLoading(true, 'Deleting question...');
     try {
         const response = await fetch(`${API_BASE}/api/questions/${questionId}`, {
             method: 'DELETE'
@@ -2179,9 +2218,11 @@ async function deleteQuestion(questionId) {
                 startQuizBtn.disabled = true;
             }
         }
+        showDbLoading(false);
     } catch (error) {
         console.error('Error deleting question:', error);
         showError('Failed to delete question: ' + error.message);
+        showDbLoading(false);
     }
 }
 
@@ -2527,20 +2568,20 @@ function updateQuizUI() {
         quizOptions.appendChild(textInput);
     } else {
         // MCQ question
-        question.options.forEach((option, index) => {
-            const optionDiv = document.createElement('div');
-            optionDiv.className = 'quiz-option';
-            optionDiv.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
-            optionDiv.dataset.index = index;
-            
-            // Check if this option was previously selected
-            if (quizAnswers[currentQuizQuestion] === index) {
-                optionDiv.classList.add('selected');
-            }
-            
-            optionDiv.addEventListener('click', () => selectQuizOption(index));
-            quizOptions.appendChild(optionDiv);
-        });
+    question.options.forEach((option, index) => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'quiz-option';
+        optionDiv.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+        optionDiv.dataset.index = index;
+        
+        // Check if this option was previously selected
+        if (quizAnswers[currentQuizQuestion] === index) {
+            optionDiv.classList.add('selected');
+        }
+        
+        optionDiv.addEventListener('click', () => selectQuizOption(index));
+        quizOptions.appendChild(optionDiv);
+    });
     }
     
     // Update navigation buttons
@@ -2613,22 +2654,22 @@ function showQuestionFeedback() {
     } else {
         if (questionType === 'text') {
             quizFeedback.textContent = `✗ Incorrect. The correct answer is: ${question.correctAnswer}`;
-        } else {
-            quizFeedback.textContent = `✗ Incorrect. The correct answer is: ${String.fromCharCode(65 + question.correctAnswer)}. ${question.options[question.correctAnswer]}`;
+    } else {
+        quizFeedback.textContent = `✗ Incorrect. The correct answer is: ${String.fromCharCode(65 + question.correctAnswer)}. ${question.options[question.correctAnswer]}`;
         }
     }
     
     // Update option colors (only for MCQ)
     if (questionType === 'mcq') {
-        const options = quizOptions.querySelectorAll('.quiz-option');
-        options.forEach((opt, i) => {
-            opt.classList.remove('correct', 'incorrect');
-            if (i === question.correctAnswer) {
-                opt.classList.add('correct');
-            } else if (i === selectedAnswer && !isCorrect) {
-                opt.classList.add('incorrect');
-            }
-        });
+    const options = quizOptions.querySelectorAll('.quiz-option');
+    options.forEach((opt, i) => {
+        opt.classList.remove('correct', 'incorrect');
+        if (i === question.correctAnswer) {
+            opt.classList.add('correct');
+        } else if (i === selectedAnswer && !isCorrect) {
+            opt.classList.add('incorrect');
+        }
+    });
     }
 }
 
