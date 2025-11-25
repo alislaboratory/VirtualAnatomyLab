@@ -704,7 +704,6 @@ app.get('/embed/:modelId', (req, res) => {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        ${hasQuestions ? `
         .embed-controls {
             position: absolute;
             top: 20px;
@@ -712,6 +711,7 @@ app.get('/embed/:modelId', (req, res) => {
             z-index: 100;
             display: flex;
             gap: 12px;
+            flex-wrap: wrap;
         }
         .btn-quiz {
             padding: 12px 24px;
@@ -730,6 +730,192 @@ app.get('/embed/:modelId', (req, res) => {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(255, 193, 7, 0.4);
         }
+        .labels-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 350px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+        .labels-panel.hidden {
+            display: none;
+        }
+        .labels-panel-header {
+            padding: 16px 20px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .labels-panel-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+        .btn-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .btn-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .labels-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .label-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .label-item-content {
+            flex: 1;
+        }
+        .label-item-text {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .label-item-position {
+            font-size: 12px;
+            color: #666;
+        }
+        .label-item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .label-hover-popup {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            display: none;
+            flex-direction: row;
+            gap: 4px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            pointer-events: auto;
+        }
+        .label-hover-popup::before {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid white;
+            margin-top: -1px;
+        }
+        .label-hover-btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .label-hover-btn-toggle {
+            background: #6b7280;
+            color: white;
+        }
+        .label-hover-btn-toggle:hover {
+            background: #4b5563;
+        }
+        .question-hover-popup {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            pointer-events: auto;
+            min-width: 200px;
+            max-width: 300px;
+        }
+        .question-hover-popup::before {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid white;
+            margin-top: -1px;
+        }
+        .question-hover-text {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .question-hover-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        .question-hover-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .question-hover-btn-preview {
+            background: #667eea;
+            color: white;
+        }
+        .question-hover-btn-preview:hover {
+            background: #5568d3;
+        }
+        ${hasQuestions ? `
         .quiz-overlay {
             position: absolute;
             top: 0;
@@ -1015,8 +1201,18 @@ app.get('/embed/:modelId', (req, res) => {
         <canvas id="viewer-canvas"></canvas>
         <div id="label-container"></div>
         <div class="embed-controls">
+            <button id="reset-camera-btn" class="btn-quiz">Reset Camera</button>
             <button id="show-labels-btn" class="btn-quiz">Show Labels</button>
+            <button id="view-labels-list-btn" class="btn-quiz">View Labels List</button>
             ${hasQuestions ? '<button id="start-quiz-btn" class="btn-quiz">Start Quiz</button>' : ''}
+        </div>
+        <!-- Label Management Panel -->
+        <div id="labels-panel" class="labels-panel hidden">
+            <div class="labels-panel-header">
+                <h3>Labels</h3>
+                <button id="close-labels-panel" class="btn-close">×</button>
+            </div>
+            <div id="labels-list" class="labels-list"></div>
         </div>
         ${hasQuestions ? `
         <div id="quiz-overlay" class="quiz-overlay hidden">
@@ -1090,14 +1286,15 @@ app.get('/embed/:modelId', (req, res) => {
         let currentModel = null;
         let animationMixer = null;
         let clock = new THREE.Clock();
-        let labels = [];
+        let labels = []; // Array of {id, text, color, position, object}
         let labelsVisible = false;
+        const labelToggleButtons = new Map(); // labelId -> [button1, button2, ...]
+        let isAnimating = false;
         ${hasQuestions ? `
         let questions = [];
         let quizMode = false;
         let currentQuizQuestion = 0;
         let quizAnswers = [];
-        let isAnimating = false;
         ` : ''}
 
         // Initialize scene
@@ -1205,15 +1402,53 @@ app.get('/embed/:modelId', (req, res) => {
 
         function resetCamera() {
             if (!currentModel) return;
+            if (isAnimating) return; // Don't interrupt ongoing animation
+            
             const box = new THREE.Box3().setFromObject(currentModel);
             const center = box.getCenter(new THREE.Vector3());
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
             const distance = maxDim * 2;
-            camera.position.set(distance, distance * 0.6, distance);
-            camera.lookAt(center);
-            controls.target.copy(center);
-            controls.update();
+            
+            const targetPosition = new THREE.Vector3(distance, distance * 0.6, distance);
+            const targetTarget = center.clone();
+            
+            // Animate to the reset position
+            animateCameraToResetPosition(targetPosition, targetTarget);
+        }
+        
+        // Animate camera to reset position
+        function animateCameraToResetPosition(targetPosition, targetTarget) {
+            if (isAnimating) return;
+            
+            isAnimating = true;
+            const startPosition = camera.position.clone();
+            const startTarget = controls.target.clone();
+            
+            const duration = 1000; // 1 second
+            const startTime = Date.now();
+            
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function (ease-in-out)
+                const eased = progress < 0.5 
+                    ? 2 * progress * progress 
+                    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                
+                camera.position.lerpVectors(startPosition, targetPosition, eased);
+                controls.target.lerpVectors(startTarget, targetTarget, eased);
+                controls.update();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    isAnimating = false;
+                }
+            }
+            
+            animate();
         }
 
         async function loadLabels() {
@@ -1241,6 +1476,7 @@ app.get('/embed/:modelId', (req, res) => {
                     labelDiv.style.color = 'white';
                     labelDiv.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
                     labelDiv.style.border = '2px solid white';
+                    labelDiv.style.position = 'relative';
 
                     const label = new CSS2DObject(labelDiv);
                     label.position.copy(position);
@@ -1250,21 +1486,210 @@ app.get('/embed/:modelId', (req, res) => {
                         label.element.style.display = 'none';
                     }
                     scene.add(label);
-                    labels.push(label);
+                    
+                    // Store label data with ID for hover popups and list
+                    labels.push({
+                        id: savedLabel.id,
+                        text: savedLabel.text,
+                        color: savedLabel.color,
+                        position: position,
+                        object: label
+                    });
+                    
+                    // Add hover popup (without edit/delete buttons)
+                    addLabelHoverPopup(labelDiv, savedLabel.id);
                 });
+                updateLabelsList();
             } catch (error) {
                 console.error('Error loading labels:', error);
             }
         }
         
+        function getOpenEyeIcon() {
+            return \`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>\`;
+        }
+        
+        function getClosedEyeIcon() {
+            return \`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>\`;
+        }
+        
+        function addLabelHoverPopup(labelDiv, labelId) {
+            const popup = document.createElement('div');
+            popup.className = 'label-hover-popup';
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'label-hover-btn label-hover-btn-toggle';
+            const labelData = labels.find(l => l.id === labelId);
+            const isCurrentlyVisible = labelData && labelData.object ? labelData.object.visible : false;
+            toggleBtn.innerHTML = isCurrentlyVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+            toggleBtn.title = isCurrentlyVisible ? 'Hide label' : 'Show label';
+            
+            if (!labelToggleButtons.has(labelId)) {
+                labelToggleButtons.set(labelId, []);
+            }
+            labelToggleButtons.get(labelId).push(toggleBtn);
+            
+            toggleBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleLabelVisibility(labelId);
+            };
+            
+            popup.appendChild(toggleBtn);
+            labelDiv.appendChild(popup);
+            
+            // Use JavaScript hover events
+            let hoverTimeout = null;
+            let isHovering = false;
+            
+            const showPopup = () => {
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
+                }
+                isHovering = true;
+                popup.style.display = 'flex';
+            };
+            
+            const hidePopup = () => {
+                isHovering = false;
+                hoverTimeout = setTimeout(() => {
+                    if (!isHovering) {
+                        popup.style.display = 'none';
+                    }
+                    hoverTimeout = null;
+                }, 200);
+            };
+            
+            labelDiv.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                showPopup();
+            });
+            labelDiv.addEventListener('mouseleave', (e) => {
+                e.stopPropagation();
+                hidePopup();
+            });
+            popup.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                showPopup();
+            });
+            popup.addEventListener('mouseleave', (e) => {
+                e.stopPropagation();
+                hidePopup();
+            });
+        }
+        
+        function toggleLabelVisibility(labelId) {
+            const labelData = labels.find(l => l.id === labelId);
+            if (!labelData || !labelData.object) return;
+            
+            const newVisibility = !labelData.object.visible;
+            labelData.object.visible = newVisibility;
+            if (labelData.object.element) {
+                labelData.object.element.style.display = newVisibility ? 'block' : 'none';
+            }
+            
+            // Update all toggle buttons for this label
+            updateLabelToggleButtons(labelId, newVisibility);
+        }
+        
+        function updateLabelToggleButtons(labelId, isVisible) {
+            const buttons = labelToggleButtons.get(labelId) || [];
+            const validButtons = buttons.filter(btn => btn && btn.parentElement);
+            validButtons.forEach(btn => {
+                btn.innerHTML = isVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+                btn.title = isVisible ? 'Hide label' : 'Show label';
+            });
+            if (validButtons.length !== buttons.length) {
+                labelToggleButtons.set(labelId, validButtons);
+            }
+        }
+        
+        function updateLabelsList() {
+            const labelsList = document.getElementById('labels-list');
+            if (!labelsList) return;
+            
+            labelsList.innerHTML = '';
+            
+            if (labels.length === 0) {
+                labelsList.innerHTML = '<p style="padding: 16px; color: #666; text-align: center;">No labels available.</p>';
+                return;
+            }
+            
+            labels.forEach(labelData => {
+                const item = document.createElement('div');
+                item.className = 'label-item';
+                item.style.borderLeftColor = labelData.color;
+                
+                const content = document.createElement('div');
+                content.className = 'label-item-content';
+                
+                const text = document.createElement('div');
+                text.className = 'label-item-text';
+                text.textContent = labelData.text;
+                content.appendChild(text);
+                
+                const position = document.createElement('div');
+                position.className = 'label-item-position';
+                position.textContent = \`Position: (\${labelData.position.x.toFixed(2)}, \${labelData.position.y.toFixed(2)}, \${labelData.position.z.toFixed(2)})\`;
+                content.appendChild(position);
+                
+                const actions = document.createElement('div');
+                actions.className = 'label-item-actions';
+                
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'btn-small';
+                toggleBtn.style.background = '#6b7280';
+                toggleBtn.style.color = 'white';
+                toggleBtn.style.fontSize = '14px';
+                toggleBtn.style.padding = '6px 10px';
+                toggleBtn.style.display = 'flex';
+                toggleBtn.style.alignItems = 'center';
+                toggleBtn.style.justifyContent = 'center';
+                const isCurrentlyVisible = labelData.object ? labelData.object.visible : false;
+                toggleBtn.innerHTML = isCurrentlyVisible ? getOpenEyeIcon() : getClosedEyeIcon();
+                toggleBtn.title = isCurrentlyVisible ? 'Hide label' : 'Show label';
+                
+                if (!labelToggleButtons.has(labelData.id)) {
+                    labelToggleButtons.set(labelData.id, []);
+                }
+                labelToggleButtons.get(labelData.id).push(toggleBtn);
+                
+                toggleBtn.onclick = () => {
+                    toggleLabelVisibility(labelData.id);
+                };
+                actions.appendChild(toggleBtn);
+                
+                item.appendChild(content);
+                item.appendChild(actions);
+                labelsList.appendChild(item);
+            });
+        }
+        
+        function toggleLabelsPanel() {
+            const panel = document.getElementById('labels-panel');
+            if (!panel) return;
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                updateLabelsList();
+            }
+        }
+        
         function toggleLabels() {
             labelsVisible = !labelsVisible;
-            labels.forEach(label => {
-                if (label) {
-                    label.visible = labelsVisible;
-                    if (label.element) {
-                        label.element.style.display = labelsVisible ? 'block' : 'none';
+            labels.forEach(labelData => {
+                if (labelData && labelData.object) {
+                    labelData.object.visible = labelsVisible;
+                    if (labelData.object.element) {
+                        labelData.object.element.style.display = labelsVisible ? 'block' : 'none';
                     }
+                    // Update toggle buttons
+                    updateLabelToggleButtons(labelData.id, labelsVisible);
                 }
             });
             const btn = document.getElementById('show-labels-btn');
@@ -1312,6 +1737,7 @@ app.get('/embed/:modelId', (req, res) => {
                     questionDiv.style.padding = '0';
                     questionDiv.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
                     questionDiv.style.border = '2px solid white';
+                    questionDiv.style.position = 'relative';
 
                     const questionMarker = new CSS2DObject(questionDiv);
                     questionMarker.position.copy(position);
@@ -1339,7 +1765,7 @@ app.get('/embed/:modelId', (req, res) => {
                         };
                     }
 
-                    return {
+                    const questionData = {
                         id: savedQuestion.id,
                         text: savedQuestion.text,
                         question_type: savedQuestion.question_type || 'mcq',
@@ -1349,9 +1775,125 @@ app.get('/embed/:modelId', (req, res) => {
                         marker: questionMarker,
                         cameraView: cameraView
                     };
+                    
+                    // Add hover popup (only preview button, no edit/delete)
+                    addQuestionHoverPopup(questionDiv, questionData);
+                    
+                    return questionData;
                 });
             } catch (error) {
                 console.error('Error loading questions:', error);
+            }
+        }
+        
+        function addQuestionHoverPopup(questionDiv, questionData) {
+            const popup = document.createElement('div');
+            popup.className = 'question-hover-popup';
+            
+            const questionText = document.createElement('div');
+            questionText.className = 'question-hover-text';
+            questionText.textContent = questionData.text;
+            popup.appendChild(questionText);
+            
+            const buttons = document.createElement('div');
+            buttons.className = 'question-hover-buttons';
+            
+            const previewBtn = document.createElement('button');
+            previewBtn.className = 'question-hover-btn question-hover-btn-preview';
+            previewBtn.textContent = 'Preview';
+            previewBtn.onclick = (e) => {
+                e.stopPropagation();
+                previewQuestion(questionData);
+            };
+            
+            buttons.appendChild(previewBtn);
+            popup.appendChild(buttons);
+            questionDiv.appendChild(popup);
+            
+            // Use JavaScript hover events
+            let hoverTimeout = null;
+            let isHovering = false;
+            
+            const showPopup = () => {
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
+                }
+                isHovering = true;
+                popup.style.display = 'flex';
+            };
+            
+            const hidePopup = () => {
+                isHovering = false;
+                hoverTimeout = setTimeout(() => {
+                    if (!isHovering) {
+                        popup.style.display = 'none';
+                    }
+                    hoverTimeout = null;
+                }, 200);
+            };
+            
+            questionDiv.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                showPopup();
+            });
+            questionDiv.addEventListener('mouseleave', (e) => {
+                e.stopPropagation();
+                hidePopup();
+            });
+            popup.addEventListener('mouseenter', (e) => {
+                e.stopPropagation();
+                showPopup();
+            });
+            popup.addEventListener('mouseleave', (e) => {
+                e.stopPropagation();
+                hidePopup();
+            });
+        }
+        
+        function previewQuestion(questionData) {
+            // Find the question index
+            const questionIndex = questions.findIndex(q => q.id === questionData.id);
+            if (questionIndex === -1) return;
+            
+            // Open quiz overlay
+            const quizOverlay = document.getElementById('quiz-overlay');
+            if (!quizOverlay) return;
+            quizOverlay.classList.remove('hidden');
+            
+            // Set current question
+            currentQuizQuestion = questionIndex;
+            quizAnswers = new Array(questions.length).fill(-1);
+            
+            // Update UI to show this question
+            updateQuizUI();
+            
+            // Disable navigation buttons in preview mode
+            const prevBtn = document.getElementById('quiz-prev-btn');
+            const nextBtn = document.getElementById('quiz-next-btn');
+            const submitBtn = document.getElementById('quiz-submit-btn');
+            if (prevBtn) prevBtn.disabled = true;
+            if (nextBtn) nextBtn.disabled = true;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'View Answer';
+            }
+            
+            // Hide feedback area initially
+            const feedback = document.getElementById('quiz-feedback');
+            if (feedback) {
+                feedback.style.display = 'none';
+            }
+            
+            // Animate camera to question view
+            if (questionData.cameraView) {
+                animateCameraToSavedView(questionData.cameraView, () => {
+                    // Camera animation complete
+                });
+            } else {
+                animateCameraToPosition(questionData.position, () => {
+                    // Camera animation complete
+                });
             }
         }
 
@@ -1368,11 +1910,11 @@ app.get('/embed/:modelId', (req, res) => {
             controls.enabled = true;
             
             // Hide labels and show questions during quiz
-            labels.forEach(label => {
-                if (label) {
-                    label.visible = false;
-                    if (label.element) {
-                        label.element.style.display = 'none';
+            labels.forEach(labelData => {
+                if (labelData && labelData.object) {
+                    labelData.object.visible = false;
+                    if (labelData.object.element) {
+                        labelData.object.element.style.display = 'none';
                     }
                 }
             });
@@ -1401,11 +1943,11 @@ app.get('/embed/:modelId', (req, res) => {
                 controls.enabled = true;
                 
                 // Restore label visibility based on labelsVisible state
-                labels.forEach(label => {
-                    if (label) {
-                        label.visible = labelsVisible;
-                        if (label.element) {
-                            label.element.style.display = labelsVisible ? 'block' : 'none';
+                labels.forEach(labelData => {
+                    if (labelData && labelData.object) {
+                        labelData.object.visible = labelsVisible;
+                        if (labelData.object.element) {
+                            labelData.object.element.style.display = labelsVisible ? 'block' : 'none';
                         }
                     }
                 });
@@ -1787,7 +2329,10 @@ app.get('/embed/:modelId', (req, res) => {
         }
 
         initScene();
+        document.getElementById('reset-camera-btn').addEventListener('click', resetCamera);
         document.getElementById('show-labels-btn').addEventListener('click', toggleLabels);
+        document.getElementById('view-labels-list-btn').addEventListener('click', toggleLabelsPanel);
+        document.getElementById('close-labels-panel').addEventListener('click', toggleLabelsPanel);
         ${hasQuestions ? `
         document.getElementById('start-quiz-btn').addEventListener('click', startQuiz);
         document.getElementById('exit-quiz-btn').addEventListener('click', exitQuiz);
