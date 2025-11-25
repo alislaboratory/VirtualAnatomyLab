@@ -57,6 +57,9 @@ const modelDescriptionInput = document.getElementById('model-description-input')
 const uploadModelBtn = document.getElementById('upload-model-btn');
 const fileNameDisplay = document.getElementById('file-name-display');
 const fileInputLabelText = document.getElementById('file-input-label-text');
+const uploadProgressContainer = document.getElementById('upload-progress-container');
+const uploadProgressFill = document.getElementById('upload-progress-fill');
+const uploadProgressText = document.getElementById('upload-progress-text');
 const loadingEl = document.getElementById('loading');
 const dbLoadingEl = document.getElementById('db-loading');
 const dbLoadingTextEl = document.getElementById('db-loading-text');
@@ -917,6 +920,9 @@ function openNewModelModal() {
     fileNameDisplay.classList.add('hidden');
     fileInputLabelText.textContent = 'Choose GLB File';
     uploadModelBtn.disabled = true;
+    uploadProgressContainer.classList.add('hidden');
+    uploadProgressFill.style.width = '0%';
+    uploadProgressText.textContent = '0%';
     modelNameInput.focus();
 }
 
@@ -948,8 +954,10 @@ async function uploadNewModel() {
         return;
     }
 
-    showDbLoading(true, 'Uploading model...');
     uploadModelBtn.disabled = true;
+    uploadProgressContainer.classList.remove('hidden');
+    uploadProgressFill.style.width = '0%';
+    uploadProgressText.textContent = '0%';
 
     try {
         const formData = new FormData();
@@ -959,36 +967,76 @@ async function uploadNewModel() {
             formData.append('description', description);
         }
 
-        showDbLoading(true, 'Uploading file to server...');
-        const response = await fetch(`${API_BASE}/api/models`, {
-            method: 'POST',
-            body: formData
+        // Use XMLHttpRequest for upload progress tracking
+        const model = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    uploadProgressFill.style.width = percentComplete + '%';
+                    uploadProgressText.textContent = Math.round(percentComplete) + '%';
+                }
+            });
+
+            // Handle completion
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const model = JSON.parse(xhr.responseText);
+                        resolve(model);
+                    } catch (e) {
+                        reject(new Error('Invalid response from server'));
+                    }
+                } else {
+                    try {
+                        const error = JSON.parse(xhr.responseText);
+                        reject(new Error(error.error || 'Failed to upload model'));
+                    } catch (e) {
+                        reject(new Error('Failed to upload model'));
+                    }
+                }
+            });
+
+            // Handle errors
+            xhr.addEventListener('error', () => {
+                reject(new Error('Network error during upload'));
+            });
+
+            // Handle abort
+            xhr.addEventListener('abort', () => {
+                reject(new Error('Upload cancelled'));
+            });
+
+            // Start upload
+            xhr.open('POST', `${API_BASE}/api/models`);
+            xhr.send(formData);
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to upload model');
-        }
-
-        showDbLoading(true, 'Saving to database...');
-        const model = await response.json();
+        // Update progress for database operations
+        uploadProgressText.textContent = 'Saving to database...';
+        uploadProgressFill.style.width = '90%';
 
         showDbLoading(true, 'Reloading models...');
         // Reload model list
         await loadAvailableModels();
 
-        showDbLoading(true, 'Loading model...');
+        uploadProgressText.textContent = 'Loading model...';
+        uploadProgressFill.style.width = '100%';
+
         // Update dropdown text and load the model
         modelSelectText.textContent = model.name;
         await loadModelFromDatabase(model.id);
 
         // Close modal
         closeNewModelModal();
-
+        uploadProgressContainer.classList.add('hidden');
         showDbLoading(false);
     } catch (error) {
         console.error('Error uploading model:', error);
         showError('Failed to upload model: ' + error.message);
+        uploadProgressContainer.classList.add('hidden');
         showDbLoading(false);
         uploadModelBtn.disabled = false;
     }
